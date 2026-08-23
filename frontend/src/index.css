@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/*
+  Design direction: "night flight" -- a travel journal read by lamplight,
+  not a SaaS dashboard. Deep indigo-navy (a night sky over a flight path)
+  with a brass/gold accent (compass, wax seal, ticket ink) and a warm
+  paper surface for itinerary content (boarding pass / passport page).
+  Data (times, prices, flight codes) sets in mono, like a ticket stub.
+*/
+@theme {
+  --color-bg: #10142a;
+  --color-bg-soft: #161b39;
+  --color-surface: #1b2140;
+  --color-surface-2: #232b52;
+  --color-paper: #f6f0e2;
+  --color-paper-soft: #efe6d0;
+  --color-paper-ink: #1d2233;
+  --color-text: #ede8d8;
+  --color-text-muted: #9098b8;
+  --color-text-faint: #616a94;
+  --color-accent: #c9a24b;
+  --color-accent-soft: #e2c583;
+  --color-accent-ink: #2a1f08;
+  --color-jade: #4b9c8c;
+  --color-jade-soft: #7dbfb1;
+  --color-stamp: #b4483a;
+  --color-border: #2a3158;
+  --color-border-soft: #363f6e;
+
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(201, 162, 75, 0.08), transparent 45%),
+      radial-gradient(circle at 85% 15%, rgba(75, 156, 140, 0.06), transparent 40%);
+    background-attachment: fixed;
+  }
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Ticket-stub card: punched notches on either side, used for itinerary
+     days and the trip summary card. */
+  .ticket-card {
+    position: relative;
+    background-color: var(--color-paper);
+    color: var(--color-paper-ink);
+    border-radius: 0.75rem;
+  }
+  .ticket-card::before,
+  .ticket-card::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 1.25rem;
+    height: 1.25rem;
+    background: var(--color-bg);
+    border-radius: 9999px;
+    transform: translateY(-50%);
+  }
+  .ticket-card::before {
+    left: -0.625rem;
+  }
+  .ticket-card::after {
+    right: -0.625rem;
+  }
+
+  .label-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+  }
+}
