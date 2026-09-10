@@ -17,10 +17,11 @@ class TavilyWebSearchProvider:
         if not self._settings.TAVILY_API_KEY:
             raise ProviderError("tavily", "TAVILY_API_KEY not configured", retriable=False)
         async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(_SEARCH_URL, json={
-                "api_key": self._settings.TAVILY_API_KEY, "query": query,
-                "max_results": max_results, "include_answer": False,
-            })
+            resp = await client.post(
+                _SEARCH_URL,
+                json={"query": query, "max_results": max_results, "include_answer": False},
+                headers={"Authorization": f"Bearer {self._settings.TAVILY_API_KEY}"}
+            )
         if resp.status_code != 200:
             raise ProviderError("tavily", f"search failed: {resp.text}", retriable=resp.status_code >= 500)
         results = resp.json().get("results", [])

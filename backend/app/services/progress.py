@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import time
+from typing import Callable
 
 import app.db.session as db_session_module
 from app.models.agent import AgentEvent
@@ -24,6 +25,7 @@ def _channel(trip_id: str) -> str:
 
 
 async def emit_event(
+    session_factory: Callable,
     trip_id: str,
     agent_run_id: str,
     event_type: str,
@@ -41,7 +43,7 @@ async def emit_event(
     }
 
     try:
-        async with db_session_module.AsyncSessionLocal() as session:
+        async with session_factory() as session:
             session.add(AgentEvent(
                 agent_run_id=agent_run_id, event_type=event_type,
                 agent_name=agent_name, message=message, payload=payload,

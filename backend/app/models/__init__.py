@@ -37,3 +37,5 @@ __all__ = [
     "AgentRun",
     "AgentEvent",
 ]
+from app.models.audit import AuditLog  # noqa: F401
+__all__.append("AuditLog")

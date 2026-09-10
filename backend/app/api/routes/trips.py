@@ -1,9 +1,11 @@
-from __future__ import annotations
+
+from fastapi import Request
+from app.core.limiter import limiter
 
 import asyncio
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, Body, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,14 +14,15 @@ from app.api.deps import get_current_user
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.agent import AgentRun
-from app.models.itinerary import Itinerary
+from app.models.itinerary import Itinerary, ItineraryDay, ItineraryActivity
 from app.models.research import ResearchSource
 from app.models.trip import Trip, TripFeedback, TripStatus
 from app.models.user import User
 from app.schemas.agent import AgentRunRead, ResearchSourceRead
-from app.schemas.itinerary import BudgetLineRead, BudgetRead, ItineraryRead
+from app.schemas.itinerary import BudgetLineRead, BudgetRead, ItineraryRead, ActivityReorderRequest
 from app.schemas.trip import TripCreate, TripModify, TripRead, TripStatusRead
 from app.services.trip_service import TripService
+from app.workers.tasks import modify_trip_task, plan_trip_task, regenerate_trip_task
 
 router = APIRouter(prefix="/trips", tags=["trips"])
 
@@ -32,12 +35,12 @@ async def _get_owned_trip(trip_id: uuid.UUID, db: AsyncSession, user: User) -> T
     return trip
 
 
-def _run_in_background(coro_factory) -> None:
-    """Fire-and-forget a planning run in its own DB session/task -- this is
-    the asyncio-based stand-in for a Celery worker (see docs/architecture.md
-    for the trade-off). The request returns immediately; progress streams
-    over SSE at GET /trips/{id}/stream."""
-    asyncio.create_task(coro_factory())
+def _dispatch_background(coro_factory, celery_task, celery_args):
+    settings = get_settings()
+    if settings.BACKGROUND_EXECUTOR == "celery":
+        celery_task.delay(*celery_args)
+    else:
+        asyncio.create_task(coro_factory())
 
 
 @router.post("", response_model=TripRead, status_code=status.HTTP_201_CREATED)
@@ -73,7 +76,8 @@ async def delete_trip(trip_id: uuid.UUID, current_user: User = Depends(get_curre
 
 
 @router.post("/{trip_id}/plan", response_model=TripStatusRead, status_code=status.HTTP_202_ACCEPTED)
-async def plan_trip(
+@limiter.limit('5/minute')
+async def plan_trip(request: Request, 
     trip_id: uuid.UUID, payload: TripModify | None = None,
     current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db),
 ) -> TripStatusRead:
@@ -99,13 +103,14 @@ async def plan_trip(
             else:
                 await service.plan_existing_trip(bg_db, bg_trip, message)
 
-    _run_in_background(_do_run)
+    _dispatch_background(_do_run, plan_trip_task, (str(trip.id), message, is_resume))
     return TripStatusRead(trip_id=trip.id, status=trip.status, awaiting_input=False)
 
 
 @router.post("/{trip_id}/modify", response_model=TripStatusRead, status_code=status.HTTP_202_ACCEPTED)
-async def modify_trip(
-    trip_id: uuid.UUID, payload: TripModify,
+@limiter.limit('5/minute')
+async def modify_trip(request: Request, 
+    trip_id: uuid.UUID, payload: TripModify ,
     current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db),
 ) -> TripStatusRead:
     trip = await _get_owned_trip(trip_id, db, current_user)
@@ -120,7 +125,7 @@ async def modify_trip(
             bg_trip = await _get_owned_trip(trip_id, bg_db, current_user)
             await service.modify_trip(bg_db, bg_trip, payload.message)
 
-    _run_in_background(_do_modify)
+    _dispatch_background(_do_modify, modify_trip_task, (str(trip.id), payload.message))
     return TripStatusRead(trip_id=trip.id, status=trip.status, awaiting_input=False)
 
 
@@ -138,13 +143,13 @@ async def regenerate_trip(
             bg_trip = await _get_owned_trip(trip_id, bg_db, current_user)
             await service.regenerate_trip(bg_db, bg_trip)
 
-    _run_in_background(_do_regenerate)
+    _dispatch_background(_do_regenerate, regenerate_trip_task, (str(trip.id),))
     return TripStatusRead(trip_id=trip.id, status=trip.status, awaiting_input=False)
 
 
 @router.post("/{trip_id}/feedback", status_code=status.HTTP_201_CREATED)
 async def submit_feedback(
-    trip_id: uuid.UUID, payload: TripModify,
+    trip_id: uuid.UUID, payload: TripModify ,
     current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db),
 ) -> dict:
     trip = await _get_owned_trip(trip_id, db, current_user)
@@ -212,3 +217,46 @@ async def get_sources(trip_id: uuid.UUID, current_user: User = Depends(get_curre
         select(ResearchSource).join(AgentRun, ResearchSource.agent_run_id == AgentRun.id).where(AgentRun.trip_id == trip.id)
     )
     return list(result.scalars().all())
+
+@router.put("/{trip_id}/itinerary/days/{day_id}/activities/reorder", status_code=status.HTTP_200_OK)
+async def reorder_activities(
+    trip_id: uuid.UUID,
+    day_id: uuid.UUID,
+    payload: ActivityReorderRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    # Verify ownership of trip
+    trip = await _get_owned_trip(trip_id, db, current_user)
+
+    # Verify that the day belongs to an itinerary of this trip
+    result = await db.execute(
+        select(ItineraryDay).join(Itinerary).where(
+            ItineraryDay.id == day_id,
+            Itinerary.trip_id == trip.id
+        )
+    )
+    day = result.scalar_one_or_none()
+    if not day:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Day not found.")
+
+    # Fetch existing activities for the day
+    res_activities = await db.execute(
+        select(ItineraryActivity).where(ItineraryActivity.itinerary_day_id == day.id)
+    )
+    activities = res_activities.scalars().all()
+    activity_map = {str(a.id): a for a in activities}
+
+    # Validate that all provided ids belong to this day
+    for a_id in payload.activity_ids:
+        if str(a_id) not in activity_map:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Activity {a_id} does not belong to the specified day.")
+
+    # Update order_index
+    for index, a_id in enumerate(payload.activity_ids):
+        activity = activity_map[str(a_id)]
+        activity.order_index = index
+
+    await db.commit()
+    return {"status": "success"}
+

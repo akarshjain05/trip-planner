@@ -1,7 +1,7 @@
 from __future__ import annotations
 import datetime as dt
 from app.agents.deps import NodeDeps
-from app.agents.nodes._common import bump_tool_calls, usage_update
+from app.agents.nodes._common import bump_tool_calls, usage_update, with_provider_fallback
 from app.agents.state import TripState
 from app.schemas.domain import HotelOptionModel, TripRequirements
 from app.tools.cache import cached, make_cache_key

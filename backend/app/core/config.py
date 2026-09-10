@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     )
 
     # --- App ---
+    BACKGROUND_EXECUTOR: str = "fastapi"
+
     APP_NAME: str = "AI Trip Planner"
     ENVIRONMENT: Literal["development", "test", "production"] = "development"
     DEBUG: bool = True
@@ -54,6 +56,12 @@ class Settings(BaseSettings):
     # --- Redis (cache + pub/sub progress bus + background-task queue) ---
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # --- Celery ---
+    CELERY_BROKER_URL: str | None = None
+    CELERY_RESULT_BACKEND: str | None = None
+    CELERY_TASK_ALWAYS_EAGER: bool = False
+
+
     # --- Demo / mock mode ---
     # When true (or when no provider API key is configured), the app runs
     # entirely on deterministic mock data: no travel API keys and no LLM
@@ -61,7 +69,7 @@ class Settings(BaseSettings):
     DEMO_MODE: bool = True
 
     # --- LLM provider abstraction ---
-    LLM_PROVIDER: Literal["openai", "anthropic", "google", "openrouter", "mock"] = "mock"
+    LLM_PROVIDER: Literal["openai", "anthropic", "google", "openrouter", "nvidia", "mock"] = "mock"
     LLM_MODEL: str = "gpt-4o-mini"
     LLM_TEMPERATURE: float = 0.3
 
@@ -69,27 +77,32 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str | None = None
     GOOGLE_API_KEY: str | None = None
     OPENROUTER_API_KEY: str | None = None
+    NVIDIA_API_KEY: str | None = None
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
 
     # --- Travel data providers (mock-by-default; real adapters are opt-in) ---
-    FLIGHTS_PROVIDER: Literal["mock", "amadeus"] = "mock"
-    HOTELS_PROVIDER: Literal["mock", "booking"] = "mock"
-    PLACES_PROVIDER: Literal["mock", "google_places"] = "mock"
-    WEATHER_PROVIDER: Literal["mock", "open_meteo"] = "mock"
-    CURRENCY_PROVIDER: Literal["mock", "exchange_rate_api"] = "mock"
-    WEB_SEARCH_PROVIDER: Literal["mock", "tavily"] = "mock"
+    FLIGHTS_PROVIDER: str = "mock"
+    HOTELS_PROVIDER: str = "mock"
+    PLACES_PROVIDER: str = "mock"
+    FOOD_PROVIDER: str = "mock"
+    WEATHER_PROVIDER: str = "mock"
+    CURRENCY_PROVIDER: str = "mock"
+    WEB_SEARCH_PROVIDER: str = "mock"
 
     AMADEUS_API_KEY: str | None = None
     AMADEUS_API_SECRET: str | None = None
     GOOGLE_PLACES_API_KEY: str | None = None
+    FOURSQUARE_API_KEY: str | None = None
     OPENWEATHER_API_KEY: str | None = None
     TAVILY_API_KEY: str | None = None
+    RAPIDAPI_KEY: str | None = None
+    SERPAPI_KEY: str | None = None
 
     # --- Agent cost / safety controls ---
     MAX_AGENT_ITERATIONS: int = 3
     MAX_TOOL_CALLS: int = 40
     MAX_LLM_COST_USD: float = 2.00
-    MAX_TRIP_PLANNING_TIME_SECONDS: int = 180
+    MAX_TRIP_PLANNING_TIME_SECONDS: int = 600
 
     # --- Caching TTLs (seconds) ---
     CACHE_TTL_WEATHER: int = 3600
@@ -106,6 +119,7 @@ class Settings(BaseSettings):
             "anthropic": bool(self.ANTHROPIC_API_KEY),
             "google": bool(self.GOOGLE_API_KEY),
             "openrouter": bool(self.OPENROUTER_API_KEY),
+            "nvidia": bool(self.NVIDIA_API_KEY),
             "mock": True,
         }.get(self.LLM_PROVIDER, False)
 

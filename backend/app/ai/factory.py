@@ -55,6 +55,18 @@ def build_chat_model(settings: Settings) -> BaseChatModel:
             temperature=settings.LLM_TEMPERATURE,
             api_key=settings.OPENROUTER_API_KEY,
             base_url=settings.OPENROUTER_BASE_URL,
+            max_tokens=60000,
+        )
+
+    
+    if provider == "nvidia":
+        from langchain_openai import ChatOpenAI
+
+        return ChatOpenAI(
+            model=settings.LLM_MODEL,
+            temperature=settings.LLM_TEMPERATURE,
+            api_key=settings.NVIDIA_API_KEY,
+            base_url="https://integrate.api.nvidia.com/v1",
         )
 
     raise ValueError(f"Unknown or unsupported LLM_PROVIDER: {provider!r}")

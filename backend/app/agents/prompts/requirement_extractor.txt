@@ -5,8 +5,11 @@ and extract a strict structured TripRequirements object.
 
 Rules:
 - Only fill fields you can support from the text; leave others null/empty.
-- Infer duration_days from explicit dates or explicit day counts, not both guessed.
+- Infer duration_days from explicit dates or explicit day counts. Also infer from common terms (e.g. "weekend" = 2 days, "long weekend" = 3 or 4 days). Leave null if completely unspecified.
+- If you identify an origin or destination city, you MUST also populate origin_iata and destination_iata with their standard 3-letter uppercase IATA codes (e.g., LHR, LIS, JFK). Do not leave them null if the city is known.
 - Normalize budget_amount to a plain number and budget_currency to an ISO-ish code
   (e.g. "₹1,50,000" -> 150000, "INR").
 - likes/activity_preferences and dislikes/avoid must not overlap.
 - Do not invent an origin city if none was given.
+
+- CRITICAL: Extract numerical values exactly as requested. If the user asks for a "10-day" trip, set duration_days to 10. Do not set duration_days to 0. Leave null if unspecified.

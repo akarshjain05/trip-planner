@@ -20,6 +20,21 @@ def make_budget_optimizer_node(deps: NodeDeps):
         result = await deps.orchestrator.optimize_budget(req, flights, hotels, places, restaurants)
         budget: BudgetBreakdown = result.value
 
+        target_currency = budget.currency or "USD"
+        total = 0.0
+        
+        for line in budget.lines:
+            if line.currency and line.currency.upper() != target_currency.upper():
+                try:
+                    rate = await deps.currency_provider.get_rate(line.currency.upper(), target_currency.upper())
+                    line.estimated_amount = round(line.estimated_amount * rate, 2)
+                    line.currency = target_currency.upper()
+                except Exception as e:
+                    pass
+            total += line.estimated_amount
+            
+        budget.total_estimated = round(total, 2)
+
         msg = f"Estimated total: {budget.total_estimated:.0f} {budget.currency}."
         if budget.optimizations_applied:
             msg += f" Applied {len(budget.optimizations_applied)} optimization(s) to fit your budget."

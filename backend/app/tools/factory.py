@@ -18,6 +18,15 @@ def get_flight_provider(settings: Settings):
     if settings.FLIGHTS_PROVIDER == "amadeus" and not settings.DEMO_MODE:
         from app.tools.flights.amadeus import AmadeusFlightProvider
         return AmadeusFlightProvider(settings)
+    if settings.FLIGHTS_PROVIDER == "sky_scrapper" and not settings.DEMO_MODE:
+        from app.tools.flights.sky_scrapper import SkyScrapperFlightProvider
+        return SkyScrapperFlightProvider(settings)
+    if settings.FLIGHTS_PROVIDER == "tavily_flights":
+        from app.tools.flights.tavily_flights import TavilyFlightProvider
+        return TavilyFlightProvider(settings)
+    if settings.FLIGHTS_PROVIDER == "serpapi":
+        from app.tools.flights.serpapi_flights import SerpApiFlightProvider
+        return SerpApiFlightProvider(settings)
     return MockFlightProvider()
 
 
@@ -25,17 +34,38 @@ def get_hotel_provider(settings: Settings):
     if settings.HOTELS_PROVIDER == "booking" and not settings.DEMO_MODE:
         from app.tools.hotels.booking_stub import BookingComHotelProvider
         return BookingComHotelProvider(settings)
+    if settings.HOTELS_PROVIDER == "rapidapi_booking" and not settings.DEMO_MODE:
+        from app.tools.hotels.rapidapi_booking import RapidApiBookingHotelProvider
+        return RapidApiBookingHotelProvider(settings)
+    if settings.HOTELS_PROVIDER == "tavily_hotels":
+        from app.tools.hotels.tavily_hotels import TavilyHotelProvider
+        return TavilyHotelProvider(settings)
+    if settings.HOTELS_PROVIDER == "serpapi":
+        from app.tools.hotels.serpapi_hotels import SerpApiHotelProvider
+        return SerpApiHotelProvider(settings)
     return MockHotelProvider()
 
 
 def get_places_provider(settings: Settings):
-    if settings.PLACES_PROVIDER == "google_places" and not settings.DEMO_MODE:
+    if getattr(settings, "PLACES_PROVIDER", "") == "google_places" and not settings.DEMO_MODE:
         from app.tools.places.google_places_stub import GooglePlacesProvider
         return GooglePlacesProvider(settings)
+    if getattr(settings, "PLACES_PROVIDER", "") == "serpapi" and not settings.DEMO_MODE:
+        from app.tools.places.serpapi_places import SerpAPIPlacesProvider
+        return SerpAPIPlacesProvider(settings)
+    if getattr(settings, "PLACES_PROVIDER", "") == "tavily_places" and not settings.DEMO_MODE:
+        from app.tools.places.tavily_places import TavilyPlacesProvider
+        return TavilyPlacesProvider(settings)
     return MockPlacesProvider()
 
 
 def get_restaurant_provider(settings: Settings):
+    if getattr(settings, "FOOD_PROVIDER", "") == "serpapi" and not settings.DEMO_MODE:
+        from app.tools.restaurants.serpapi_food import SerpAPIFoodProvider
+        return SerpAPIFoodProvider(settings)
+    if getattr(settings, "FOOD_PROVIDER", "") == "tavily_food" and not settings.DEMO_MODE:
+        from app.tools.restaurants.tavily_food import TavilyFoodProvider
+        return TavilyFoodProvider(settings)
     return MockRestaurantProvider()
 
 
@@ -48,8 +78,8 @@ def get_weather_provider(settings: Settings):
 
 def get_currency_provider(settings: Settings):
     if settings.CURRENCY_PROVIDER == "exchange_rate_api" and not settings.DEMO_MODE:
-        from app.tools.currency.exchange_rate_api import ExchangeRateApiProvider
-        return ExchangeRateApiProvider()
+        from app.tools.currency.frankfurter import FrankfurterCurrencyProvider
+        return FrankfurterCurrencyProvider()
     return MockCurrencyProvider()
 
 

@@ -18,12 +18,24 @@ _TOKEN_URL = "https://test.api.amadeus.com/v1/security/oauth2/token"
 _SEARCH_URL = "https://test.api.amadeus.com/v2/shopping/flight-offers"
 
 
+import re
+
+def _parse_iso_duration(duration_str: str) -> int | None:
+    match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?', duration_str)
+    if not match:
+        return None
+    hours = int(match.group(1) or 0)
+    mins = int(match.group(2) or 0)
+    return hours * 60 + mins
+
 class AmadeusFlightProvider:
     def __init__(self, settings: Settings):
         self._settings = settings
         self._token: str | None = None
 
     async def _get_token(self, client: httpx.AsyncClient) -> str:
+        if self._token:
+            return self._token
         resp = await client.post(_TOKEN_URL, data={
             "grant_type": "client_credentials",
             "client_id": self._settings.AMADEUS_API_KEY,
@@ -31,7 +43,8 @@ class AmadeusFlightProvider:
         })
         if resp.status_code != 200:
             raise ProviderError("amadeus", f"auth failed: {resp.text}", retriable=False)
-        return resp.json()["access_token"]
+        self._token = resp.json()["access_token"]
+        return self._token
 
     async def search_flights(
         self, origin: str, destination: str,
@@ -58,12 +71,17 @@ class AmadeusFlightProvider:
         for offer in data:
             itinerary = offer["itineraries"][0]
             segments = itinerary["segments"]
+            
+            # Use duration from the itinerary level, or fall back to segment accumulation if needed.
+            duration_str = itinerary.get("duration", "")
+            duration_mins = _parse_iso_duration(duration_str)
+
             results.append(FlightOptionModel(
                 provider="amadeus", origin=origin, destination=destination,
                 depart_at=segments[0]["departure"]["at"], return_at=None,
                 airline=segments[0].get("carrierCode"),
                 price=float(offer["price"]["total"]), currency=offer["price"]["currency"],
-                duration_minutes=None, stops=len(segments) - 1, cabin=cabin,
+                duration_minutes=duration_mins, stops=len(segments) - 1, cabin=cabin,
                 baggage=None, is_mock=False,
             ))
         return results

@@ -7,6 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Awaitable
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.ai.orchestrator import LLMOrchestrator
 from app.core.config import Settings
 
@@ -26,4 +28,5 @@ class NodeDeps:
     currency_provider: object
     maps_provider: object
     web_search_provider: object
+    session_factory: Callable[[], AsyncSession]
     emit: EmitFn

@@ -69,16 +69,88 @@ class LLMOrchestrator:
     async def _structured(self, schema_cls: type[T], system_prompt: str, user_prompt: str) -> LLMResult:
         if self._chat_model is None:
             raise RuntimeError("Real LLM requested but orchestrator is in mock mode.")
-        structured_model = self._chat_model.with_structured_output(schema_cls, include_raw=True)
-        result = await structured_model.ainvoke(
-            [("system", system_prompt), ("human", user_prompt)]
-        )
-        parsed = result["parsed"]
-        raw = result.get("raw")
-        usage_meta = getattr(raw, "usage_metadata", None) or {}
+            
+        import asyncio
+        import json
+        import re
+        from langchain_core.messages import HumanMessage, SystemMessage
+        from pydantic import ValidationError
+        
+        schema_json = schema_cls.model_json_schema()
+        sys_prompt = system_prompt + f"\n\nCRITICAL INSTRUCTION: You must respond ONLY with a valid JSON object that contains the data for this schema. Do NOT echo the schema itself (do not include $defs, properties, type, etc). Only output the actual data values matching the schema. Do not include any markdown formatting (like ```json), or reasoning before or after the JSON.\n\nJSON Schema:\n{json.dumps(schema_json)}"
+        
+        # Rate-limit guard: sleep before every LLM call to stay under
+        # Groq free-tier 8000 TPM limit.
+        await asyncio.sleep(10)
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                res = await self._chat_model.ainvoke([
+                    SystemMessage(content=sys_prompt), 
+                    HumanMessage(content=user_prompt)
+                ])
+                break  # success
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "rate_limit" in err_str.lower():
+                    wait_time = 15 * (attempt + 1)  # 15s, 30s, 45s
+                    print(f"[RATE LIMIT] Hit 429, waiting {wait_time}s before retry {attempt+1}/{max_retries}")
+                    await asyncio.sleep(wait_time)
+                    if attempt == max_retries - 1:
+                        raise  # exhausted retries
+                else:
+                    raise  # non-rate-limit error, propagate immediately
+        
+        text = res.content.strip()
+        match = re.search(r'```(?:json)?(.*?)```', text, re.DOTALL)
+        if match:
+            text = match.group(1).strip()
+            
+        print("RAW LLM OUTPUT:", repr(text))
+        
+        objects = []
+        depth = 0
+        start = -1
+        for i, char in enumerate(text):
+            if char == '{':
+                if depth == 0:
+                    start = i
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0 and start != -1:
+                    objects.append(text[start:i+1])
+                    
+        parsed = None
+        last_err = None
+        
+        # If the model returned an array, and the schema has exactly one field, try wrapping it
+        if text.startswith('[') and text.endswith(']'):
+            fields = list(schema_cls.model_fields.keys())
+            if len(fields) == 1:
+                wrapped = f'{{"{fields[0]}": {text}}}'
+                objects.append(wrapped)
+        
+        if not objects:
+            objects = [text] # Fallback to trying the whole text
+            
+        for obj_str in reversed(objects):
+            try:
+                parsed = schema_cls.model_validate_json(obj_str)
+                break
+            except ValidationError as e:
+                last_err = e
+                
+        if parsed is None:
+            if last_err:
+                raise last_err
+            raise ValueError(f"Could not parse valid JSON object from LLM output: {text}")
+
+        usage_meta = getattr(res, "usage_metadata", None) or {}
         in_tok = usage_meta.get("input_tokens", 0) or 0
         out_tok = usage_meta.get("output_tokens", 0) or 0
-        cost = (in_tok / 1000) * _COST_PER_1K_INPUT + (out_tok / 1000) * _COST_PER_1K_OUTPUT
+        cost = (in_tok / 1000) * 0.00015 + (out_tok / 1000) * 0.0006
         return LLMResult(value=parsed, usage=UsageInfo(in_tok, out_tok, used_mock=False, estimated_cost_usd=cost))
 
     @staticmethod
@@ -205,10 +277,15 @@ class LLMOrchestrator:
                 mock_llm.generate_itinerary(req, destination, flights, hotels, places, restaurants, weather, budget, transportation)
             )
         prompt = load_prompt("itinerary_generator")
+        # Trim data to top 3 per category to keep context small for rate-limited models
+        top_flights = [f.model_dump() for f in flights[:2]]
+        top_hotels = [h.model_dump() for h in hotels[:2]]
+        top_places = [{"name": p.name, "category": p.category, "rating": p.rating} for p in places[:5]]
+        top_restaurants = [{"name": r.name, "cuisine": r.cuisine, "rating": r.rating} for r in restaurants[:5]]
         ctx = (
             f"Requirements: {req.model_dump_json()}\nDestination: {destination}\n"
-            f"Flights: {[f.model_dump() for f in flights]}\nHotels: {[h.model_dump() for h in hotels]}\n"
-            f"Places: {[p.model_dump() for p in places]}\nRestaurants: {[r.model_dump() for r in restaurants]}\n"
+            f"Flights: {top_flights}\nHotels: {top_hotels}\n"
+            f"Places: {top_places}\nRestaurants: {top_restaurants}\n"
             f"Transportation: {transportation.model_dump_json() if transportation else '{}'}\n"
             f"Weather: {weather.model_dump_json()}\nBudget: {budget.model_dump_json()}"
         )

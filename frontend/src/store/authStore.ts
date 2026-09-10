@@ -60,9 +60,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const user = await fetchMe();
       set({ user, isInitialized: true });
-    } catch {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
+    } catch (err: any) {
+      if (err?.response?.status === 401) {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+      }
       set({ user: null, isInitialized: true });
     }
   },

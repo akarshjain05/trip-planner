@@ -15,7 +15,7 @@ from langgraph.graph import END
 
 from app.agents.deps import NodeDeps
 from app.agents.nodes._common import usage_update
-from app.agents.state import TripState, compute_replan_targets
+from app.agents.state import TripState
 from app.schemas.domain import BudgetBreakdown, CriticResult, ItineraryModel, PlaceModel, TripRequirements
 
 
@@ -65,7 +65,7 @@ def route_after_critic(state: TripState) -> str:
 def make_replanner_node(deps: NodeDeps):
     async def node(state: TripState) -> dict:
         critic = state.get("critic_result") or {}
-        targets = compute_replan_targets(critic.get("recommended_searches", []))
+        targets = critic.get("recommended_searches", [])
 
         await deps.emit(
             state["trip_id"], state["agent_run_id"], "replanning", "replanner",

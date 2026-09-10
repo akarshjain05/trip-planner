@@ -1,7 +1,7 @@
 from __future__ import annotations
 import datetime as dt
 from app.agents.deps import NodeDeps
-from app.agents.nodes._common import bump_tool_calls, usage_update
+from app.agents.nodes._common import bump_tool_calls, usage_update, with_provider_fallback
 from app.agents.state import TripState
 from app.schemas.domain import FlightOptionModel, TripRequirements
 from app.tools.cache import cached, make_cache_key
@@ -14,12 +14,19 @@ def make_flight_research_node(deps: NodeDeps):
         req = TripRequirements(**state["requirements"])
         destination = state.get("destination") or req.destination or "Unspecified"
         origin = req.origin or "Unspecified"
+        
+        # Use IATA codes if the LLM provided them, else fallback to city names
+        search_dest = req.destination_iata or destination
+        search_orig = req.origin_iata or origin
+        
         start = dt.date.fromisoformat(req.start_date) if isinstance(req.start_date, str) else req.start_date
 
-        key = make_cache_key("flights", origin=origin, destination=destination, depart=str(start))
+        key = make_cache_key("flights", origin=search_orig, destination=search_dest, depart=str(start))
 
         async def fetch():
-            options = await deps.flight_provider.search_flights(origin, destination, start, None, max(req.adults, 1))
+            if origin == "Unspecified" or destination == "Unspecified":
+                return []
+            options = await deps.flight_provider.search_flights(search_orig, search_dest, start, None, max(req.adults, 1))
             return [o.model_dump(mode="json") for o in options]
 
         raw, hit = await cached(key, deps.settings.CACHE_TTL_FLIGHTS, fetch)

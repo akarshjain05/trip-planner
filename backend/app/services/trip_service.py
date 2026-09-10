@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.deps import NodeDeps
 from app.agents.graph import build_trip_graph
-from app.agents.state import compute_replan_targets
+
 from app.ai.orchestrator import LLMOrchestrator
 from app.core.config import Settings
 from app.models.agent import AgentRun, AgentRunStatus
@@ -50,6 +50,9 @@ class TripService:
 
     def _build_deps(self) -> NodeDeps:
         s = self.settings
+        from functools import partial
+        from app.db.session import AsyncSessionLocal
+        
         return NodeDeps(
             settings=s,
             orchestrator=LLMOrchestrator(s),
@@ -61,7 +64,8 @@ class TripService:
             currency_provider=get_currency_provider(s),
             maps_provider=get_maps_provider(s),
             web_search_provider=get_web_search_provider(s),
-            emit=emit_event,
+            session_factory=AsyncSessionLocal,
+            emit=partial(emit_event, AsyncSessionLocal),
         )
 
     # ------------------------------------------------------------------
@@ -75,11 +79,12 @@ class TripService:
         await db.refresh(trip)
         return await self.plan_existing_trip(db, trip, prompt)
 
-    async def plan_existing_trip(self, db: AsyncSession, trip: Trip, message: str) -> Trip:
+    async def plan_existing_trip(self, db: AsyncSession, trip: Trip, message: str, celery_task_id: str | None = None) -> Trip:
         """Runs an initial planning pass against a trip row that already
         exists (e.g. created via POST /trips as a draft). Used both by
         start_trip and directly by POST /trips/{id}/plan."""
-        run = AgentRun(trip_id=trip.id, status=AgentRunStatus.RUNNING, trigger="initial_plan")
+        trip.status = TripStatus.PLANNING
+        run = AgentRun(trip_id=trip.id, status=AgentRunStatus.RUNNING, trigger="initial_plan", celery_task_id=celery_task_id)
         db.add(run)
         await db.commit()
         await db.refresh(run)
@@ -90,8 +95,9 @@ class TripService:
         )
         return trip
 
-    async def continue_trip(self, db: AsyncSession, trip: Trip, message: str) -> Trip:
-        run = AgentRun(trip_id=trip.id, status=AgentRunStatus.RUNNING, trigger="initial_plan")
+    async def continue_trip(self, db: AsyncSession, trip: Trip, message: str, celery_task_id: str | None = None) -> Trip:
+        trip.status = TripStatus.PLANNING
+        run = AgentRun(trip_id=trip.id, status=AgentRunStatus.RUNNING, trigger="initial_plan", celery_task_id=celery_task_id)
         db.add(run)
         await db.commit()
         await db.refresh(run)
@@ -102,7 +108,7 @@ class TripService:
         )
         return trip
 
-    async def modify_trip(self, db: AsyncSession, trip: Trip, message: str) -> Trip:
+    async def modify_trip(self, db: AsyncSession, trip: Trip, message: str, celery_task_id: str | None = None) -> Trip:
         deps_for_interp = self._build_deps()
         prior = trip.state_snapshot or {}
         req = TripRequirements(**(prior.get("requirements") or {}))
@@ -110,14 +116,14 @@ class TripService:
         mod: ModificationInterpretation = result.value
 
         merged_req = req.model_copy(update=mod.changed_fields) if mod.changed_fields else req
-        targets = compute_replan_targets(mod.nodes_to_rerun)
+        targets = mod.nodes_to_rerun
 
         db.add(TripFeedback(
             trip_id=trip.id, message=message,
             interpreted_changes=mod.changed_fields, nodes_rerun=targets,
         ))
 
-        run = AgentRun(trip_id=trip.id, status=AgentRunStatus.RUNNING, trigger="modification")
+        run = AgentRun(trip_id=trip.id, status=AgentRunStatus.RUNNING, trigger="modification", celery_task_id=celery_task_id)
         db.add(run)
         await db.commit()
         await db.refresh(run)
@@ -132,11 +138,11 @@ class TripService:
         await self._run_graph(db, trip, run, trigger="modification", user_message=message, base_state=base_state)
         return trip
 
-    async def regenerate_trip(self, db: AsyncSession, trip: Trip) -> Trip:
+    async def regenerate_trip(self, db: AsyncSession, trip: Trip, celery_task_id: str | None = None) -> Trip:
         """Full regenerate: re-run the whole research+planning pipeline (spec
         section 14's 'regenerate the whole itinerary' control), as opposed to
         modify_trip's targeted partial replan."""
-        run = AgentRun(trip_id=trip.id, status=AgentRunStatus.RUNNING, trigger="modification")
+        run = AgentRun(trip_id=trip.id, status=AgentRunStatus.RUNNING, trigger="modification", celery_task_id=celery_task_id)
         db.add(run)
         await db.commit()
         await db.refresh(run)
@@ -171,6 +177,8 @@ class TripService:
         if trigger == "initial_plan":
             initial_state.setdefault("requirements", {})
             initial_state["awaiting_input"] = False
+        import time
+        initial_state["start_time"] = time.time()
 
         config = {
             "configurable": {"thread_id": str(trip.id)},

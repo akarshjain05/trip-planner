@@ -1,3 +1,4 @@
+import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useParams } from "react-router-dom";
@@ -62,23 +63,33 @@ export function TripDetailPage() {
       <p className="label-eyebrow mb-2">Trip</p>
       <h1 className="font-display text-3xl text-text mb-10">{trip.title}</h1>
 
-      {status.status === "draft" && (
-        <StartPlanning tripId={tripId} onStarted={() => queryClient.invalidateQueries({ queryKey: ["trip-status", tripId] })} />
-      )}
+      <AnimatePresence>
+        {status.status === "draft" && (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+            <StartPlanning tripId={tripId} onStarted={() => queryClient.invalidateQueries({ queryKey: ["trip-status", tripId] })} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {status.status === "awaiting_input" && (
-        <ClarifyingQuestion
-          tripId={tripId}
-          question={status.clarifying_question}
-          onAnswered={() => queryClient.invalidateQueries({ queryKey: ["trip-status", tripId] })}
-        />
-      )}
+      <AnimatePresence>
+        {status.status === "awaiting_input" && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}>
+            <ClarifyingQuestion
+              tripId={tripId}
+              question={status.clarifying_question}
+              onAnswered={() => queryClient.invalidateQueries({ queryKey: ["trip-status", tripId] })}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {isPlanning && (
-        <div className="mb-10">
-          <AgentProgressBoard events={events} />
-        </div>
-      )}
+      <AnimatePresence>
+        {isPlanning && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-10 overflow-hidden">
+            <AgentProgressBoard events={events} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {status.status === "failed" && (
         <div className="border border-stamp/40 bg-stamp/10 rounded-xl px-6 py-5 text-sm text-text">
@@ -89,25 +100,48 @@ export function TripDetailPage() {
         </div>
       )}
 
-      {showResults && itinerary && budget && (
-        <div className="flex flex-col gap-8">
-          <BudgetChart budget={budget} />
+      <AnimatePresence>
+        {showResults && itinerary && budget && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.5, staggerChildren: 0.1 }}
+            className="flex flex-col gap-8"
+          >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+              <BudgetChart budget={budget} />
+            </motion.div>
 
-          <div className="flex flex-col gap-6">
-            {itinerary.days.map((day) => (
-              <ItineraryDayCard key={day.id} day={day} currency={itinerary.currency} />
-            ))}
-          </div>
+            <div className="flex flex-col gap-6">
+              {itinerary.days.map((day, i) => (
+                <motion.div 
+                  key={day.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 + (i * 0.1) }}
+                >
+                  <ItineraryDayCard day={day} currency={itinerary.currency} tripId={tripId} />
+                </motion.div>
+              ))}
+            </div>
 
-          {sources && sources.length > 0 && <Sources sources={sources} />}
+            {sources && sources.length > 0 && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
+                <Sources sources={sources} />
+              </motion.div>
+            )}
 
-          <ModifyBox tripId={tripId} onSubmitted={() => queryClient.invalidateQueries({ queryKey: ["trip-status", tripId] })} />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
+              <ModifyBox tripId={tripId} onSubmitted={() => queryClient.invalidateQueries({ queryKey: ["trip-status", tripId] })} />
+            </motion.div>
 
-          <div className="flex justify-end">
-            <RegenerateButton tripId={tripId} />
-          </div>
-        </div>
-      )}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="flex justify-end">
+              <RegenerateButton tripId={tripId} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -153,6 +187,7 @@ function ClarifyingQuestion({
           autoFocus
           className="flex-1 bg-surface border border-border-soft rounded-lg px-4 py-2.5 text-text placeholder:text-text-faint focus:border-accent transition-colors outline-none"
           placeholder="Your answer..."
+          aria-label="Your answer to the clarifying question"
         />
         <button
           type="submit"
@@ -187,6 +222,7 @@ function ModifyBox({ tripId, onSubmitted }: { tripId: string; onSubmitted: () =>
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder='"Hotels are too expensive." "Remove the museums." "Change Tokyo to Kyoto."'
+          aria-label="Describe what you want to change"
           className="flex-1 bg-bg border border-border-soft rounded-lg px-4 py-2.5 text-text placeholder:text-text-faint focus:border-accent transition-colors outline-none text-sm"
         />
         <button

@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { listTrips } from "../services/api";
@@ -48,13 +49,18 @@ export function TripsListPage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-3">
+      <motion.div 
+        className="flex flex-col gap-3"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ staggerChildren: 0.1 }}
+      >
         {trips?.map((trip) => (
-          <Link
-            key={trip.id}
-            to={`/trips/${trip.id}`}
-            className="block border border-border-soft rounded-xl px-6 py-5 bg-surface hover:border-accent/50 transition-colors"
-          >
+          <motion.div key={trip.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <Link
+              to={`/trips/${trip.id}`}
+              className="block border border-border-soft rounded-xl px-6 py-5 bg-surface hover:border-accent/50 transition-colors"
+            >
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-text font-medium truncate">{trip.title}</p>
@@ -66,9 +72,10 @@ export function TripsListPage() {
                 {STATUS_LABEL[trip.status]}
               </span>
             </div>
-          </Link>
+            </Link>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 }

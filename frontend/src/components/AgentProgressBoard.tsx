@@ -1,3 +1,4 @@
+import { motion, AnimatePresence } from "framer-motion";
 import { useMemo } from "react";
 import type { AgentProgressEvent } from "../types";
 
@@ -56,7 +57,7 @@ export function AgentProgressBoard({ events }: { events: AgentProgressEvent[] })
   const iteration = events.filter((e) => e.type === "replanning").length;
 
   return (
-    <div className="rounded-2xl border border-border-soft bg-surface p-5">
+    <motion.div layout className="rounded-2xl border border-border-soft bg-surface p-5">
       <div className="flex items-center justify-between mb-4 px-1">
         <span className="label-eyebrow">Agent execution</span>
         {iteration > 0 && (
@@ -86,9 +87,19 @@ export function AgentProgressBoard({ events }: { events: AgentProgressEvent[] })
         })}
       </div>
 
-      {latestMessage && (
-        <p className="text-xs text-text-muted mt-3 px-1 leading-relaxed">{latestMessage}</p>
-      )}
-    </div>
+      <AnimatePresence mode="wait">
+        {latestMessage && (
+          <motion.p 
+            key={latestMessage}
+            initial={{ opacity: 0, y: 5 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            exit={{ opacity: 0, y: -5 }} 
+            className="text-xs text-text-muted mt-3 px-1 leading-relaxed"
+          >
+            {latestMessage}
+          </motion.p>
+        )}
+      </AnimatePresence>
+  </motion.div>
   );
 }

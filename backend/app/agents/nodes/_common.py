@@ -21,3 +21,22 @@ def usage_update(state, usage: UsageInfo) -> dict:
 
 def bump_tool_calls(state, n: int = 1) -> int:
     return n
+
+from app.tools.base import ProviderError
+
+async def with_provider_fallback(deps, state, node_name: str, primary_coro, mock_coro):
+    """
+    Executes primary_coro. If it raises a ProviderError, emits a warning event
+    and falls back to mock_coro.
+    """
+    try:
+        return await primary_coro
+    except ProviderError as e:
+        await deps.emit(
+            state["trip_id"], 
+            state["agent_run_id"], 
+            "tool_completed", 
+            node_name, 
+            f"Provider '{e.provider}' failed, falling back to mock data."
+        )
+        return await mock_coro

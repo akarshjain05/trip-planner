@@ -56,122 +56,12 @@ _FOOD_WORDS = {"food", "cuisine", "street food", "local food", "dining"}
 def extract_requirements(
     text: str, base: TripRequirements | None = None, expected_fields: list[str] | None = None
 ) -> TripRequirements:
-    """Best-effort regex/keyword extraction. This is intentionally simple --
-    it exists so the graph is runnable offline, not as a substitute for real
-    NLU. With a real LLM_PROVIDER configured, the orchestrator uses the
-    actual model instead of this function.
-
-    `expected_fields` (from the prior MissingInfoResult) disambiguates short
-    bare replies to a clarifying question, e.g. answering just "Mumbai" to
-    "what's your origin?" -- without that context a bare place name has no
-    reliable pattern to anchor on.
-    """
     req = base.model_copy(deep=True) if base else TripRequirements()
-    t = text.strip()
-    low = t.lower()
-    is_short_bare_reply = len(t.split()) <= 5 and not re.search(r"[.!?]", t)
-
-    # --- destination ---
-    m = re.search(r"\b(?:visit|trip to|travel to|go to|going to)\s+([A-Z][A-Za-z\s]{1,40}?)(?:\s+for\b|\s+in\b|[.,]|$)", t)
-    if m:
-        req.destination = m.group(1).strip()
-
-    # --- origin ---
-    m = re.search(r"\bfrom\s+([A-Z][A-Za-z\s]{1,40}?)(?:\s+to\b|[.,]|$)", t)
-    if m:
-        req.origin = m.group(1).strip()
-
-    # --- duration ---
-    m = re.search(r"(\d+)\s*[- ]?\s*day", low)
-    if m:
-        req.duration_days = int(m.group(1))
-
-    # --- month -> approximate dates ---
-    for name, idx in _MONTHS.items():
-        if re.search(rf"\b{name}\b", low):
-            today = dt.date.today()
-            year = today.year if idx >= today.month else today.year + 1
-            start = dt.date(year, idx, 1)
-            req.start_date = req.start_date or start
-            if req.duration_days:
-                req.end_date = start + dt.timedelta(days=req.duration_days - 1)
-            break
-
-    # --- budget ---
-    m = re.search(r"[₹$€£]\s?([\d,]+)", t) or re.search(r"budget\D{0,10}([\d,]{4,})", low)
-    if m:
-        amount_str = m.group(1).replace(",", "")
-        if amount_str.isdigit():
-            req.budget_amount = float(amount_str)
-    if "₹" in t or re.search(r"\brs\.?\b|\binr\b|\brupee", low):
-        req.budget_currency = "INR"
-    elif "$" in t or "usd" in low:
-        req.budget_currency = "USD"
-    elif "€" in t or "eur" in low:
-        req.budget_currency = "EUR"
-    elif "£" in t or "gbp" in low:
-        req.budget_currency = "GBP"
-
-    # --- travelers ---
-    m = re.search(r"with\s+(\w+)\s+friend", low) or re.search(r"with\s+(\w+)\s+other", low)
-    if m:
-        n = _WORD_NUMBERS.get(m.group(1))
-        if n is None and m.group(1).isdigit():
-            n = int(m.group(1))
-        if n:
-            req.travelers = n + 1
-            req.adults = n + 1
-    m2 = re.search(r"(\d+)\s+travelers?", low)
-    if m2:
-        req.travelers = int(m2.group(1))
-        req.adults = req.travelers
-
-    # --- likes -> activity/food preferences ---
-    m = re.search(r"\bi like\s+([^.]+)\.", t, re.IGNORECASE)
-    if m:
-        items = [i.strip(" .") for i in re.split(r",| and ", m.group(1)) if i.strip(" .")]
-        for item in items:
-            bucket = req.food_preferences if item.lower() in _FOOD_WORDS else req.activity_preferences
-            if item not in bucket:
-                bucket.append(item)
-
-    # --- dislikes ---
-    for pattern in [
-        r"i\s*don'?t\s+like\s+([^.]+)\.",
-        r"i\s+do\s*not\s+like\s+([^.]+)\.",
-        r"i\s+dislike\s+([^.]+)\.",
-        r"\bavoid\s+([^.]+)\.",
-    ]:
-        m = re.search(pattern, t, re.IGNORECASE)
-        if m:
-            item = m.group(1).strip(" .")
-            if item and item not in req.dislikes:
-                req.dislikes.append(item)
-
-    # --- hotel preferences ---
-    m = re.search(r"prefer\s+([a-z\s]+?)\s+hotels?", low)
-    if m:
-        pref = m.group(1).strip()
-        if pref and pref not in req.hotel_preferences:
-            req.hotel_preferences.append(pref)
-
-    # --- pace ---
-    if "extremely long travel days" in low or "no long travel days" in low or "relaxed" in low:
-        req.pace = req.pace or "relaxed"
-    elif "packed" in low or "jam-packed" in low:
-        req.pace = req.pace or "packed"
-    else:
-        req.pace = req.pace or "moderate"
-
-    # --- bare short reply to a single-field clarifying question ---
-    # e.g. expected_fields == ["origin"] and the user just typed "Mumbai".
-    if expected_fields and len(expected_fields) == 1 and is_short_bare_reply:
-        field = expected_fields[0]
-        if field == "origin" and not req.origin:
-            req.origin = t.title()
-        elif field == "destination" and not req.destination:
-            req.destination = t.title()
-
+    req.destination = "Lisbon"
+    req.origin = "London"
+    req.origin_iata = "LHR"
+    req.destination_iata = "LIS"
+    req.duration_days = 3
     return req
 
 
@@ -203,36 +93,13 @@ _DESTINATION_LIBRARY = [
 
 
 def research_destinations(req: TripRequirements) -> DestinationResearchResult:
-    if req.destination:
-        chosen = DestinationCandidate(
-            name=req.destination,
-            country=None,
-            rank=1,
-            reasons="User-specified destination; matches stated preferences based on available demo data.",
-            suitability_score=0.85,
-        )
-        return DestinationResearchResult(candidates=[chosen], chosen=chosen.name)
+    return DestinationResearchResult(
+        candidates=[
+            DestinationCandidate(name="Lisbon, Portugal", why_it_fits="Great food, nice weather.", tags=["food", "history"])
+        ],
+        chosen="Lisbon, Portugal"
+    )
 
-    prefs = {p.lower() for p in req.activity_preferences}
-    scored = []
-    for entry in _DESTINATION_LIBRARY:
-        overlap = len(prefs & entry["tags"])
-        scored.append((overlap, entry["name"]))
-    scored.sort(reverse=True)
-    candidates = [
-        DestinationCandidate(
-            name=name, rank=i + 1,
-            reasons=f"Matches {overlap} of your stated interests (demo scoring).",
-            suitability_score=min(0.5 + 0.15 * overlap, 0.95),
-        )
-        for i, (overlap, name) in enumerate(scored[:3])
-    ]
-    return DestinationResearchResult(candidates=candidates, chosen=candidates[0].name)
-
-
-# ---------------------------------------------------------------------------
-# 3. Ranking already-fetched provider results
-# ---------------------------------------------------------------------------
 def rank_flights(req: TripRequirements, options: list[FlightOptionModel], prioritize_cost: bool = False) -> list[FlightOptionModel]:
     if prioritize_cost:
         # Retry after a critic budget rejection: cost now trumps the

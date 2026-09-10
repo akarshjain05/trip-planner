@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -31,7 +32,12 @@ export function NewTripPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-16">
+    <motion.div 
+      initial={{ opacity: 0, y: 15 }} 
+      animate={{ opacity: 1, y: 0 }} 
+      transition={{ duration: 0.4 }} 
+      className="max-w-2xl mx-auto px-6 py-16"
+    >
       <p className="label-eyebrow mb-2">New trip</p>
       <h1 className="font-display text-3xl sm:text-4xl text-text mb-3">Where to, and what matters?</h1>
       <p className="text-text-muted mb-8 leading-relaxed">
@@ -47,6 +53,7 @@ export function NewTripPage() {
           rows={7}
           required
           placeholder="I want to visit..."
+          aria-label="Describe your ideal trip"
           className="bg-surface border border-border-soft rounded-xl px-5 py-4 text-text placeholder:text-text-faint focus:border-accent transition-colors outline-none resize-none leading-relaxed"
         />
         {error && <p className="text-sm text-stamp">{error}</p>}
@@ -74,6 +81,6 @@ export function NewTripPage() {
           ))}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

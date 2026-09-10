@@ -16,8 +16,8 @@
   --color-paper-soft: #efe6d0;
   --color-paper-ink: #1d2233;
   --color-text: #ede8d8;
-  --color-text-muted: #9098b8;
-  --color-text-faint: #616a94;
+  --color-text-muted: #99a1c5;
+  --color-text-faint: #7a85b3;
   --color-accent: #c9a24b;
   --color-accent-soft: #e2c583;
   --color-accent-ink: #2a1f08;
@@ -36,6 +36,29 @@
   html {
     color-scheme: dark;
   }
+
+.light {
+  --color-bg: #f9f7f1;
+  --color-bg-soft: #f2ebd9;
+  --color-surface: #ffffff;
+  --color-surface-2: #f6f0e2;
+  --color-paper: #ffffff;
+  --color-paper-soft: #fbf9f3;
+  --color-paper-ink: #1d2233;
+  --color-text: #2c3245;
+  --color-text-muted: #58607e;
+  --color-text-faint: #68718c;
+  --color-accent: #b07e1c;
+  --color-accent-soft: #c9a24b;
+  --color-accent-ink: #ffffff;
+  --color-jade: #367d6f;
+  --color-jade-soft: #4b9c8c;
+  --color-stamp: #a63f31;
+  --color-border: #e0d9c8;
+  --color-border-soft: #ebe5d7;
+  color-scheme: light;
+}
+
   body {
     background-color: var(--color-bg);
     color: var(--color-text);

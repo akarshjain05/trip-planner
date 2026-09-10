@@ -60,3 +60,6 @@ class BudgetRead(BaseModel):
     lines: list[BudgetLineRead]
     total_estimated: float
     remaining: float | None
+
+class ActivityReorderRequest(BaseModel):
+    activity_ids: list[uuid.UUID]

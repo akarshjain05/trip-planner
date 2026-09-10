@@ -1,7 +1,10 @@
-from __future__ import annotations
+
+from fastapi import Request
+from app.core.limiter import limiter
+import datetime
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,13 +43,30 @@ async def register(payload: UserRegister, db: AsyncSession = Depends(get_db)) ->
 
 
 @router.post("/login", response_model=TokenPair)
-async def login(payload: UserLogin, db: AsyncSession = Depends(get_db)) -> TokenPair:
+@limiter.limit('10/minute')
+async def login(request: Request, payload: UserLogin , db: AsyncSession = Depends(get_db)) -> TokenPair:
     result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
-    if not user or not verify_password(payload.password, user.hashed_password):
+    if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect email or password.")
+
+    if user.locked_until and user.locked_until > datetime.datetime.now(datetime.timezone.utc):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Account locked due to too many failed attempts. Try again later.")
+
+    if not user.hashed_password or not verify_password(payload.password, user.hashed_password):
+        user.failed_login_attempts += 1
+        if user.failed_login_attempts >= 5:
+            user.locked_until = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=15)
+        await db.commit()
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect email or password.")
+        
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "This account is deactivated.")
+
+    # Successful login, reset attempts
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    await db.commit()
 
     return TokenPair(
         access_token=create_access_token(str(user.id)),

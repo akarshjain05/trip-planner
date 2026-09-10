@@ -37,6 +37,19 @@ export function LoginPage() {
           {isLoading ? "Signing in..." : "Sign in"}
         </button>
       </form>
+      <div className="flex flex-col gap-4 mt-4">
+        <div className="relative flex items-center py-2">
+          <div className="flex-grow border-t border-border-soft"></div>
+          <span className="flex-shrink-0 mx-4 text-text-faint text-xs">or</span>
+          <div className="flex-grow border-t border-border-soft"></div>
+        </div>
+        <a
+          href={(import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api").replace("/api", "") + "/api/oauth/google/login"}
+          className="w-full text-center px-6 py-3 rounded-full border border-border-soft bg-surface text-text font-medium hover:bg-bg-soft transition-colors"
+        >
+          Continue with Google
+        </a>
+      </div>
       <p className="text-sm text-text-muted mt-6">
         New here?{" "}
         <Link to="/register" className="text-accent hover:text-accent-soft">

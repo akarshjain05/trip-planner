@@ -11,7 +11,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -19,7 +19,9 @@ from pydantic import BaseModel, Field
 # ---------------------------------------------------------------------------
 class TripRequirements(BaseModel):
     origin: str | None = Field(default=None, description="Departure city")
+    origin_iata: str | None = Field(default=None, description="Departure airport 3-letter IATA code (e.g. LHR, CDG, JFK, BLR)")
     destination: str | None = Field(default=None, description="Destination city/country/region")
+    destination_iata: str | None = Field(default=None, description="Destination airport 3-letter IATA code (e.g. DPS, HND)")
     start_date: dt.date | None = None
     end_date: dt.date | None = None
     duration_days: int | None = None
@@ -41,6 +43,14 @@ class TripRequirements(BaseModel):
     climate_preferences: str | None = None
     priorities: list[str] = Field(default_factory=list)
 
+    @model_validator(mode='before')
+    @classmethod
+    def scrub_nulls(cls, data: dict) -> dict:
+        if isinstance(data, dict):
+            # Remove keys where value is explicitly None, letting pydantic use defaults
+            return {k: v for k, v in data.items() if v is not None}
+        return data
+
 
 class MissingInfoResult(BaseModel):
     missing_fields: list[str] = Field(default_factory=list)
@@ -59,9 +69,17 @@ class DestinationCandidate(BaseModel):
     suitability_score: float = Field(default=0.5, ge=0, le=1)
 
 
+from pydantic import model_validator
+
 class DestinationResearchResult(BaseModel):
     candidates: list[DestinationCandidate]
-    chosen: str = Field(description="The destination chosen for the itinerary")
+    chosen: str | None = Field(default=None, description="The destination chosen for the itinerary")
+
+    @model_validator(mode='after')
+    def default_chosen(self):
+        if not self.chosen and self.candidates:
+            self.chosen = self.candidates[0].name
+        return self
 
 
 # ---------------------------------------------------------------------------

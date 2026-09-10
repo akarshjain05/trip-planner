@@ -31,7 +31,7 @@ export function BudgetChart({ budget }: { budget: Budget }) {
       <p className="label-eyebrow mb-4">Budget</p>
 
       <div className="grid sm:grid-cols-2 gap-6 items-center">
-        <div className="h-48">
+        <div className="h-48" role="figure" aria-label="Budget breakdown pie chart">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie data={data} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80} paddingAngle={2}>
