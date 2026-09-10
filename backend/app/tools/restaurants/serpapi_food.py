@@ -16,7 +16,7 @@ class SerpAPIFoodProvider:
         if preferences:
             query = f"{preferences[0]} restaurants in {destination}"
             
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(
                 "https://serpapi.com/search.json",
                 params={

@@ -50,6 +50,9 @@ def get_places_provider(settings: Settings):
     if getattr(settings, "PLACES_PROVIDER", "") == "google_places" and not settings.DEMO_MODE:
         from app.tools.places.google_places_stub import GooglePlacesProvider
         return GooglePlacesProvider(settings)
+    if getattr(settings, "PLACES_PROVIDER", "") == "geoapify" and not settings.DEMO_MODE:
+        from app.tools.places.geoapify import GeoapifyPlacesProvider
+        return GeoapifyPlacesProvider(settings)
     if getattr(settings, "PLACES_PROVIDER", "") == "serpapi" and not settings.DEMO_MODE:
         from app.tools.places.serpapi_places import SerpAPIPlacesProvider
         return SerpAPIPlacesProvider(settings)
@@ -60,6 +63,9 @@ def get_places_provider(settings: Settings):
 
 
 def get_restaurant_provider(settings: Settings):
+    if getattr(settings, "FOOD_PROVIDER", "") == "geoapify" and not settings.DEMO_MODE:
+        from app.tools.restaurants.geoapify import GeoapifyFoodProvider
+        return GeoapifyFoodProvider(settings)
     if getattr(settings, "FOOD_PROVIDER", "") == "serpapi" and not settings.DEMO_MODE:
         from app.tools.restaurants.serpapi_food import SerpAPIFoodProvider
         return SerpAPIFoodProvider(settings)

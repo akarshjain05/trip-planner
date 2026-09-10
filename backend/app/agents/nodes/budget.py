@@ -33,6 +33,25 @@ def make_budget_optimizer_node(deps: NodeDeps):
                     pass
             total += line.estimated_amount
             
+        # Convert flights and hotels in the state so the itinerary generator has the exact costs
+        for f in flights:
+            if f.currency and f.currency.upper() != target_currency.upper():
+                try:
+                    rate = await deps.currency_provider.get_rate(f.currency.upper(), target_currency.upper())
+                    f.price = round(f.price * rate, 2)
+                    f.currency = target_currency.upper()
+                except:
+                    pass
+
+        for h in hotels:
+            if h.currency and h.currency.upper() != target_currency.upper():
+                try:
+                    rate = await deps.currency_provider.get_rate(h.currency.upper(), target_currency.upper())
+                    h.price_per_night = round(h.price_per_night * rate, 2)
+                    h.currency = target_currency.upper()
+                except:
+                    pass
+
         budget.total_estimated = round(total, 2)
 
         msg = f"Estimated total: {budget.total_estimated:.0f} {budget.currency}."
@@ -44,5 +63,10 @@ def make_budget_optimizer_node(deps: NodeDeps):
         await deps.emit(state["trip_id"], state["agent_run_id"], "budget_updated", "budget_optimizer", msg,
                          {"total_estimated": budget.total_estimated, "over_budget": budget.over_budget,
                           "optimizations_applied": budget.optimizations_applied})
-        return {"budget": budget.model_dump(mode="json"), **usage_update(state, result.usage)}
+        return {
+            "budget": budget.model_dump(mode="json"),
+            "flights": [f.model_dump(mode="json") for f in flights],
+            "hotels": [h.model_dump(mode="json") for h in hotels],
+            **usage_update(state, result.usage)
+        }
     return node

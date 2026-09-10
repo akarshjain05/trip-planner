@@ -7,7 +7,7 @@ from __future__ import annotations
 import httpx
 from app.tools.base import ProviderError
 
-_BASE_URL = "https://api.frankfurter.dev/latest"
+_BASE_URL = "https://api.frankfurter.app/latest"
 
 
 class FrankfurterCurrencyProvider:

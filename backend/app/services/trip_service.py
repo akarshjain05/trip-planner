@@ -152,7 +152,15 @@ class TripService:
             "replan_target": ["destination_research"],
             "iteration_count": 0,
             "critic_result": {},
+            "final": False,
+            "error": None,
+            "tool_call_count": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "estimated_cost_usd": 0.0,
         }
+        # Also remove completed_nodes so we start totally fresh
+        base_state.pop("completed_nodes", None)
         await self._run_graph(
             db, trip, run, trigger="modification",
             user_message="(full regenerate requested)", base_state=base_state,
@@ -181,7 +189,7 @@ class TripService:
         initial_state["start_time"] = time.time()
 
         config = {
-            "configurable": {"thread_id": str(trip.id)},
+            "configurable": {"thread_id": str(run.id)},
             # Generous relative to max_iterations so OUR loop guard is what
             # stops a runaway critic loop, not LangGraph's cruder step-count
             # safety net (each loop iteration costs several graph steps).

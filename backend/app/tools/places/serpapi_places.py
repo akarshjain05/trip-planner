@@ -16,7 +16,7 @@ class SerpAPIPlacesProvider:
         if interests:
             query = f"{interests[0]} attractions in {destination}"
             
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(
                 "https://serpapi.com/search.json",
                 params={

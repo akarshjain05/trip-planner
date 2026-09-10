@@ -88,6 +88,8 @@ class Settings(BaseSettings):
     WEATHER_PROVIDER: str = "mock"
     CURRENCY_PROVIDER: str = "mock"
     WEB_SEARCH_PROVIDER: str = "mock"
+    GEOAPIFY_API_KEY: str | None = None
+
 
     AMADEUS_API_KEY: str | None = None
     AMADEUS_API_SECRET: str | None = None
