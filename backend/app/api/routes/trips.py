@@ -130,10 +130,14 @@ async def modify_trip(request: Request,
 
 
 @router.post("/{trip_id}/regenerate", response_model=TripStatusRead, status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit('5/minute')
 async def regenerate_trip(
+    request: Request,
     trip_id: uuid.UUID, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db),
 ) -> TripStatusRead:
     trip = await _get_owned_trip(trip_id, db, current_user)
+    if trip.status == TripStatus.PLANNING:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This trip is already being planned.")
     trip.status = TripStatus.PLANNING
     await db.commit()
 
