@@ -30,10 +30,12 @@ providers have real adapters and which are interfaces only, and why.
 
 ## Cross-cutting: caching, errors, retries
 
-- **Caching** (`app/tools/cache.py`): every provider call a node makes
-  goes through `cached(key, ttl, fetch)`, a thin Redis wrapper keyed by a
-  hash of the call's arguments. Verified against a real local Redis
-  instance (`backend/tests/test_tools.py::TestCache`).
+- **Caching** (`app/tools/cache.py`): every provider call and LLM query goes
+  through `cached(key, ttl, fetch)`, a thin Redis wrapper keyed by a
+  stable hash of its arguments. This allows identical searches (and identical
+  prompts during development) within the TTL window to instantly resolve without
+  re-hitting external APIs. Tested for real against a local Redis instance
+  (`backend/tests/test_tools.py::TestCache`).
 - **Normalized errors** (`app/tools/base.py`): every adapter raises
   `ProviderError(provider, message, retriable)` instead of leaking
   SDK-specific exceptions — a node (or future retry wrapper) only ever

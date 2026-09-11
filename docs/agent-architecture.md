@@ -163,6 +163,14 @@ state reducer (see below) and returned to the client as
 honestly labeled as such (`used_mock: true`) — no LLM call happened, so
 there's nothing to bill.
 
+## Token Optimization & Reliability
+
+To maximize performance, especially under strict rate-limits (like free-tier Groq accounts), `LLMOrchestrator` implements several crucial token optimizations:
+1. **Native Tool Calling:** Rather than injecting stringified JSON schemas and relying on brittle regex parsing, `_structured` natively wraps all models in `with_structured_output()`, vastly reducing prompt size and preventing schema hallucination.
+2. **Context Trimming:** Ranking nodes (`rank_flights`, `rank_hotels`, etc.) execute a cheap pre-sort (by price or rating) and slice candidates to the top 12 items *before* feeding them into the LLM context.
+3. **Null Field Pruning:** Every `Pydantic` model dump into the LLM context sets `exclude_none=True`, eliminating dozens of empty fields from `TripRequirements` payloads.
+4. **LLM Caching:** `_structured` uses the Redis `cached()` layer keyed by a hash of the target Pydantic schema, system prompt, user prompt, and model. Identical LLM calls within the dev-loop bypass network/token costs entirely.
+
 ## A LangGraph subtlety worth knowing if you extend this graph
 
 State keys that multiple *concurrently executing* nodes might write in

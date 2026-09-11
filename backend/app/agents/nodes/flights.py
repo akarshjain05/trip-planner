@@ -5,6 +5,7 @@ from app.agents.nodes._common import bump_tool_calls, usage_update, with_provide
 from app.agents.state import TripState
 from app.schemas.domain import FlightOptionModel, TripRequirements
 from app.tools.cache import cached, make_cache_key
+from app.tools.flights.mock import MockFlightProvider
 
 
 def make_flight_research_node(deps: NodeDeps):
@@ -26,7 +27,11 @@ def make_flight_research_node(deps: NodeDeps):
         async def fetch():
             if origin == "Unspecified" or destination == "Unspecified":
                 return []
-            options = await deps.flight_provider.search_flights(search_orig, search_dest, start, None, max(req.adults, 1))
+            options = await with_provider_fallback(
+                deps, state, "flight_research",
+                deps.flight_provider.search_flights(search_orig, search_dest, start, None, max(req.adults, 1)),
+                MockFlightProvider().search_flights(search_orig, search_dest, start, None, max(req.adults, 1)),
+            )
             return [o.model_dump(mode="json") for o in options]
 
         raw, hit = await cached(key, deps.settings.CACHE_TTL_FLIGHTS, fetch)

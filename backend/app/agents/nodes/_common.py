@@ -25,18 +25,18 @@ def bump_tool_calls(state, n: int = 1) -> int:
 from app.tools.base import ProviderError
 
 async def with_provider_fallback(deps, state, node_name: str, primary_coro, mock_coro):
-    """
-    Executes primary_coro. If it raises a ProviderError, emits a warning event
-    and falls back to mock_coro.
-    """
+    """Executes primary_coro; on ANY failure (ProviderError, network
+    timeout, bad response, etc.) falls back to mock_coro instead of
+    crashing the whole run."""
     try:
-        return await primary_coro
-    except ProviderError as e:
+        res = await primary_coro
+        if hasattr(mock_coro, "close"):
+            mock_coro.close()
+        return res
+    except Exception as e:
+        provider_name = getattr(e, "provider", node_name)
         await deps.emit(
-            state["trip_id"], 
-            state["agent_run_id"], 
-            "tool_completed", 
-            node_name, 
-            f"Provider '{e.provider}' failed, falling back to mock data."
+            state["trip_id"], state["agent_run_id"], "tool_completed", node_name,
+            f"Provider '{provider_name}' failed ({e}), falling back to mock data.",
         )
         return await mock_coro

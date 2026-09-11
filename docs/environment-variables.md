@@ -39,7 +39,7 @@ copy-pasteable version with the same comments) and `frontend/.env`.
 | `MAX_TOOL_CALLS` | `40` | Reserved for future per-run tool-call limiting |
 | `MAX_LLM_COST_USD` | `2.00` | Reserved for future per-run cost limiting |
 | `MAX_TRIP_PLANNING_TIME_SECONDS` | `180` | Reserved for future wall-clock limiting |
-| `CACHE_TTL_WEATHER` / `_CURRENCY` / `_PLACES` / `_FLIGHTS` / `_HOTELS` | various | Redis cache TTLs, seconds |
+| `CACHE_TTL_WEATHER` / `_CURRENCY` / `_PLACES` / `_FLIGHTS` / `_HOTELS` / `_LLM` | various | Redis cache TTLs, seconds |
 
 `MAX_TOOL_CALLS`, `MAX_LLM_COST_USD`, and `MAX_TRIP_PLANNING_TIME_SECONDS`
 are read into `Settings` and are available to wire into new guard checks,

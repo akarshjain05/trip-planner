@@ -3,6 +3,8 @@ from app.agents.deps import NodeDeps
 from app.agents.nodes._common import usage_update
 from app.agents.state import TripState
 from app.schemas.domain import DestinationResearchResult, TripRequirements
+from app.agents.nodes._common import with_provider_fallback
+from app.tools.web_search.mock import MockWebSearchProvider
 
 
 def make_destination_research_node(deps: NodeDeps):
@@ -15,7 +17,11 @@ def make_destination_research_node(deps: NodeDeps):
 
         await deps.emit(state["trip_id"], state["agent_run_id"], "tool_started", "destination_research",
                          f"Searching the web for travel context on {dr.chosen}...")
-        web_results = await deps.web_search_provider.search(f"best time to visit {dr.chosen} travel tips")
+        web_results = await with_provider_fallback(
+            deps, state, "destination_research",
+            deps.web_search_provider.search(f"best time to visit {dr.chosen} travel tips"),
+            MockWebSearchProvider().search(f"best time to visit {dr.chosen} travel tips"),
+        )
         await deps.emit(state["trip_id"], state["agent_run_id"], "search_result", "destination_research",
                          f"Found {len(web_results)} supporting source(s).", {"count": len(web_results)})
 

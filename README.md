@@ -54,7 +54,7 @@ Postgres, a real local Redis, a real HTTP server):**
 - JWT auth, trip CRUD, live SSE progress streaming
 - Mock providers for flights/hotels/places/food/weather/currency — clearly
   labeled, deterministic, zero paid keys required (`DEMO_MODE=true`)
-- A multi-LLM-provider abstraction (OpenAI/Anthropic/Google/OpenRouter)
+- A multi-LLM-provider abstraction (OpenAI/Anthropic/Google/Groq/OpenRouter)
   with a rule-based fallback so the *entire* graph — including the critic
   loop — runs and is unit-tested without any LLM key at all
 - React/TypeScript/Vite/Tailwind frontend that builds cleanly, with a live

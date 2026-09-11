@@ -56,7 +56,7 @@ class GeoapifyFoodProvider:
                     results.append(RestaurantModel(
                         name=props["name"],
                         cuisine=props.get("categories", ["Local"])[0].split(".")[-1].title(),
-                        price_range="$$",
+                        price_level="$$",
                         rating=4.5,
                         is_mock=False
                     ))

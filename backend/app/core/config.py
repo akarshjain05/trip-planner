@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     DEMO_MODE: bool = True
 
     # --- LLM provider abstraction ---
-    LLM_PROVIDER: Literal["openai", "anthropic", "google", "openrouter", "nvidia", "mock"] = "mock"
+    LLM_PROVIDER: Literal["openai", "anthropic", "google", "openrouter", "nvidia", "groq", "mock"] = "mock"
     LLM_MODEL: str = "gpt-4o-mini"
     LLM_TEMPERATURE: float = 0.3
 
@@ -78,6 +78,7 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str | None = None
     OPENROUTER_API_KEY: str | None = None
     NVIDIA_API_KEY: str | None = None
+    GROQ_API_KEY: str | None = None
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
 
     # --- Travel data providers (mock-by-default; real adapters are opt-in) ---
@@ -106,12 +107,13 @@ class Settings(BaseSettings):
     MAX_LLM_COST_USD: float = 2.00
     MAX_TRIP_PLANNING_TIME_SECONDS: int = 600
 
-    # --- Caching TTLs (seconds) ---
+    # --- Cache TTLs (seconds) ---
     CACHE_TTL_WEATHER: int = 3600
     CACHE_TTL_CURRENCY: int = 3600
     CACHE_TTL_PLACES: int = 86400
-    CACHE_TTL_FLIGHTS: int = 900
-    CACHE_TTL_HOTELS: int = 900
+    CACHE_TTL_FLIGHTS: int = 86400
+    CACHE_TTL_HOTELS: int = 86400
+    CACHE_TTL_LLM: int = 3600
 
     @property
     def llm_key_configured(self) -> bool:
@@ -122,6 +124,7 @@ class Settings(BaseSettings):
             "google": bool(self.GOOGLE_API_KEY),
             "openrouter": bool(self.OPENROUTER_API_KEY),
             "nvidia": bool(self.NVIDIA_API_KEY),
+            "groq": bool(self.GROQ_API_KEY),
             "mock": True,
         }.get(self.LLM_PROVIDER, False)
 

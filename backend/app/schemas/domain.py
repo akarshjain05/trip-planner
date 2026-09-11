@@ -146,8 +146,8 @@ class TransportLeg(BaseModel):
 
 
 class TransportationPlan(BaseModel):
-    airport_transfer: str | None = None
-    intercity: list[str] = Field(default_factory=list)
+    airport_transfer: TransportLeg | str | None = None
+    intercity: list[TransportLeg | str] = Field(default_factory=list)
     local_recommendation: str | None = None
     legs: list[TransportLeg] = Field(default_factory=list)
 

@@ -216,7 +216,15 @@ async def get_sources(trip_id: uuid.UUID, current_user: User = Depends(get_curre
     result = await db.execute(
         select(ResearchSource).join(AgentRun, ResearchSource.agent_run_id == AgentRun.id).where(AgentRun.trip_id == trip.id)
     )
-    return list(result.scalars().all())
+    
+    # Deduplicate sources by URL since they might be duplicated across multiple agent runs (e.g., from regenerating the trip)
+    sources = result.scalars().all()
+    unique_sources = {}
+    for s in sources:
+        if s.url not in unique_sources:
+            unique_sources[s.url] = s
+            
+    return list(unique_sources.values())
 
 @router.put("/{trip_id}/itinerary/days/{day_id}/activities/reorder", status_code=status.HTTP_200_OK)
 async def reorder_activities(

@@ -5,6 +5,7 @@ from app.agents.nodes._common import bump_tool_calls, usage_update, with_provide
 from app.agents.state import TripState
 from app.schemas.domain import TripRequirements, WeatherOutlook
 from app.tools.cache import cached, make_cache_key
+from app.tools.weather.mock import MockWeatherProvider
 
 
 def make_weather_season_node(deps: NodeDeps):
@@ -19,7 +20,11 @@ def make_weather_season_node(deps: NodeDeps):
         key = make_cache_key("weather", destination=destination, start=str(start), days=days)
 
         async def fetch():
-            return await deps.weather_provider.get_forecast(destination, start, days)
+            return await with_provider_fallback(
+                deps, state, "weather_season",
+                deps.weather_provider.get_forecast(destination, start, days),
+                MockWeatherProvider().get_forecast(destination, start, days),
+            )
 
         raw, hit = await cached(key, deps.settings.CACHE_TTL_WEATHER, fetch)
 

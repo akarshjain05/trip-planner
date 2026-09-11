@@ -43,7 +43,7 @@ class SerpAPIFoodProvider:
             results.append(RestaurantModel(
                 name=name,
                 cuisine=cuisine,
-                price_range=price_str,
+                price_level=price_str,
                 rating=rating,
                 is_mock=False
             ))

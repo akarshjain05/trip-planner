@@ -4,6 +4,7 @@ from app.agents.nodes._common import bump_tool_calls, usage_update, with_provide
 from app.agents.state import TripState
 from app.schemas.domain import RestaurantModel, TripRequirements
 from app.tools.cache import cached, make_cache_key
+from app.tools.restaurants.mock import MockRestaurantProvider
 
 
 def make_food_research_node(deps: NodeDeps):
@@ -15,7 +16,11 @@ def make_food_research_node(deps: NodeDeps):
         key = make_cache_key("restaurants", destination=destination)
 
         async def fetch():
-            options = await deps.restaurant_provider.search_restaurants(destination, req.food_preferences)
+            options = await with_provider_fallback(
+                deps, state, "food_research",
+                deps.restaurant_provider.search_restaurants(destination, req.food_preferences),
+                MockRestaurantProvider().search_restaurants(destination, req.food_preferences),
+            )
             return [o.model_dump(mode="json") for o in options]
 
         raw, hit = await cached(key, deps.settings.CACHE_TTL_PLACES, fetch)

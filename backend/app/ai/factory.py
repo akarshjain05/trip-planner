@@ -55,7 +55,16 @@ def build_chat_model(settings: Settings) -> BaseChatModel:
             temperature=settings.LLM_TEMPERATURE,
             api_key=settings.OPENROUTER_API_KEY,
             base_url=settings.OPENROUTER_BASE_URL,
-            max_tokens=60000,
+            max_tokens=4000,
+        )
+
+    if provider == "groq":
+        from langchain_groq import ChatGroq
+
+        return ChatGroq(
+            model_name=settings.LLM_MODEL,
+            temperature=settings.LLM_TEMPERATURE,
+            groq_api_key=settings.GROQ_API_KEY,
         )
 
     

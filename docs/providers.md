@@ -10,7 +10,7 @@ implementation. `app/tools/factory.py` picks which one to construct from
 
 | Category | Mock | Real adapter | Real adapter tested here? |
 |---|---|---|---|
-| LLM reasoning | ✅ rule-based, deterministic | ✅ OpenAI/Anthropic/Google/OpenRouter via LangChain | ❌ no network egress to these APIs from this build environment |
+| LLM reasoning | ✅ rule-based, deterministic | ✅ OpenAI/Anthropic/Google/Groq/OpenRouter via LangChain | ❌ no network egress to these APIs from this build environment |
 | Flights | ✅ | ✅ Amadeus (test environment) | ❌ |
 | Hotels | ✅ | interface only (`booking_stub.py`) | — most hotel APIs need a signed partner agreement, not just a key |
 | Places | ✅ curated + generated fallback | ✅ Google Places (New) | ❌ |

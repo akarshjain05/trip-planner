@@ -4,6 +4,7 @@ from app.agents.nodes._common import bump_tool_calls, usage_update, with_provide
 from app.agents.state import TripState
 from app.schemas.domain import PlaceModel, TripRequirements
 from app.tools.cache import cached, make_cache_key
+from app.tools.places.mock import MockPlacesProvider
 
 
 def make_places_research_node(deps: NodeDeps):
@@ -15,7 +16,11 @@ def make_places_research_node(deps: NodeDeps):
         key = make_cache_key("places", destination=destination)
 
         async def fetch():
-            options = await deps.places_provider.search_places(destination, req.activity_preferences)
+            options = await with_provider_fallback(
+                deps, state, "places_research",
+                deps.places_provider.search_places(destination, req.activity_preferences),
+                MockPlacesProvider().search_places(destination, req.activity_preferences),
+            )
             return [o.model_dump(mode="json") for o in options]
 
         raw, hit = await cached(key, deps.settings.CACHE_TTL_PLACES, fetch)

@@ -5,6 +5,7 @@ from app.agents.nodes._common import bump_tool_calls, usage_update, with_provide
 from app.agents.state import TripState
 from app.schemas.domain import HotelOptionModel, TripRequirements
 from app.tools.cache import cached, make_cache_key
+from app.tools.hotels.mock import MockHotelProvider
 
 
 def make_hotel_research_node(deps: NodeDeps):
@@ -19,7 +20,11 @@ def make_hotel_research_node(deps: NodeDeps):
         key = make_cache_key("hotels", destination=destination, checkin=str(start))
 
         async def fetch():
-            options = await deps.hotel_provider.search_hotels(destination, start, end, max(req.adults, 1))
+            options = await with_provider_fallback(
+                deps, state, "hotel_research",
+                deps.hotel_provider.search_hotels(destination, start, end, max(req.adults, 1)),
+                MockHotelProvider().search_hotels(destination, start, end, max(req.adults, 1)),
+            )
             return [o.model_dump(mode="json") for o in options]
 
         raw, hit = await cached(key, deps.settings.CACHE_TTL_HOTELS, fetch)
