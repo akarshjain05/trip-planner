@@ -116,19 +116,38 @@ class LLMOrchestrator:
     def _mock_result(value: object) -> LLMResult:
         return LLMResult(value=value, usage=UsageInfo(used_mock=True))
 
+
+    async def _with_fallback(self, real_coro_factory, mock_value_factory, node_name: str) -> LLMResult:
+        """Try the real LLM path; if the whole provider pool is exhausted (or
+        any other pool-level failure happens), log it and fall back to the
+        deterministic mock rather than failing the entire trip."""
+        try:
+            return await real_coro_factory()
+        except Exception as e:
+            from app.core.logging import get_logger
+            get_logger("orchestrator").warning(
+                "llm_fallback_to_mock", node=node_name, error=str(e)[:300]
+            )
+            return self._mock_result(mock_value_factory())
+
     # -- 1. Requirement extraction -----------------------------------------
-    async def extract_requirements(
-        self, message: str, base: TripRequirements | None = None, expected_fields: list[str] | None = None
-    ) -> LLMResult:
+    async def extract_requirements(self, message: str, base: TripRequirements | None = None, expected_fields: list[str] | None = None) -> LLMResult:
         if self.settings.use_mock_llm:
             return self._mock_result(mock_llm.extract_requirements(message, base, expected_fields))
         prompt = load_prompt("requirement_extractor")
         context = (
-            f"Prior known requirements: {base.model_dump_json(exclude_none=True) if base else '{}'}\n"
-            f"Fields the user was just asked for: {expected_fields or []}\n\n"
+            f"Prior known requirements: {base.model_dump_json(exclude_none=True) if base else '{}'}
+"
+            f"Fields the user was just asked for: {expected_fields or []}
+
+"
             f"User message: {message}"
         )
-        return await self._structured(TripRequirements, prompt, context, cheap=True)
+        return await self._with_fallback(
+            lambda: self._structured(TripRequirements, prompt, context, cheap=True),
+            lambda: mock_llm.extract_requirements(message, base, expected_fields),
+            "requirement_extractor",
+        )
 
     async def check_missing_info(self, req: TripRequirements) -> LLMResult:
         if self.settings.use_mock_llm:
@@ -141,7 +160,12 @@ class LLMOrchestrator:
         if self.settings.use_mock_llm:
             return self._mock_result(mock_llm.research_destinations(req))
         prompt = load_prompt("destination_research")
-        return await self._structured(DestinationResearchResult, prompt, req.model_dump_json(exclude_none=True), cheap=True)
+        return await self._with_fallback(
+            lambda: self._structured(DestinationResearchResult, prompt, req.model_dump_json(exclude_none=True), cheap=True),
+            lambda: mock_llm.research_destinations(req),
+            "destination_research",
+        )
+
 
     # -- 3. Ranking already-fetched provider results ------------------------
     async def rank_flights(self, req: TripRequirements, options: list[FlightOptionModel], prioritize_cost: bool = False) -> LLMResult:
@@ -149,70 +173,93 @@ class LLMOrchestrator:
             return self._mock_result(mock_llm.rank_flights(req, options, prioritize_cost))
         prompt = load_prompt("flight_research")
         candidates = sorted(options, key=lambda f: f.price or 999999)[:12]
-        ctx = f"Requirements: {req.model_dump_json(exclude_none=True)}\nOptions: {[o.model_dump(exclude_none=True) for o in candidates]}"
+        ctx = f"Requirements: {req.model_dump_json(exclude_none=True)}
+Options: {[o.model_dump(exclude_none=True) for o in candidates]}"
 
         class _Selection(BaseModel):
             selected: list[FlightOptionModel]
 
-        result = await self._structured(_Selection, prompt, ctx, cheap=True)
-        result.value = result.value.selected
-        return result
+        async def _real():
+            result = await self._structured(_Selection, prompt, ctx, cheap=True)
+            result.value = result.value.selected
+            return result
+        return await self._with_fallback(_real, lambda: mock_llm.rank_flights(req, options, prioritize_cost), "flight_research")
 
     async def rank_hotels(self, req: TripRequirements, options: list[HotelOptionModel]) -> LLMResult:
         if self.settings.use_mock_llm or not options:
             return self._mock_result(mock_llm.rank_hotels(req, options))
         prompt = load_prompt("hotel_research")
         candidates = sorted(options, key=lambda h: -(h.rating or 0))[:12]
-        ctx = f"Requirements: {req.model_dump_json(exclude_none=True)}\nOptions: {[o.model_dump(exclude_none=True) for o in candidates]}"
+        ctx = f"Requirements: {req.model_dump_json(exclude_none=True)}
+Options: {[o.model_dump(exclude_none=True) for o in candidates]}"
 
         class _Selection(BaseModel):
             selected: list[HotelOptionModel]
 
-        result = await self._structured(_Selection, prompt, ctx, cheap=True)
-        result.value = result.value.selected
-        return result
+        async def _real():
+            result = await self._structured(_Selection, prompt, ctx, cheap=True)
+            result.value = result.value.selected
+            return result
+        return await self._with_fallback(_real, lambda: mock_llm.rank_hotels(req, options), "hotel_research")
 
     async def rank_places(self, req: TripRequirements, options: list[PlaceModel], relax_crowd_filter: bool = False) -> LLMResult:
         if self.settings.use_mock_llm or not options:
             return self._mock_result(mock_llm.rank_places(req, options, relax_crowd_filter))
         prompt = load_prompt("activity_research")
         candidates = sorted(options, key=lambda p: -(p.rating or 0))[:12]
-        ctx = f"Requirements: {req.model_dump_json(exclude_none=True)}\nOptions: {[o.model_dump(exclude_none=True) for o in candidates]}"
+        ctx = f"Requirements: {req.model_dump_json(exclude_none=True)}
+Options: {[o.model_dump(exclude_none=True) for o in candidates]}"
 
         class _Selection(BaseModel):
             selected: list[PlaceModel]
 
-        result = await self._structured(_Selection, prompt, ctx, cheap=True)
-        result.value = result.value.selected
-        return result
+        async def _real():
+            result = await self._structured(_Selection, prompt, ctx, cheap=True)
+            result.value = result.value.selected
+            return result
+        return await self._with_fallback(_real, lambda: mock_llm.rank_places(req, options, relax_crowd_filter), "activity_research")
 
     async def rank_restaurants(self, req: TripRequirements, options: list[RestaurantModel]) -> LLMResult:
         if self.settings.use_mock_llm or not options:
             return self._mock_result(mock_llm.rank_restaurants(req, options))
         prompt = load_prompt("food_research")
         candidates = sorted(options, key=lambda r: -(r.rating or 0))[:12]
-        ctx = f"Requirements: {req.model_dump_json(exclude_none=True)}\nOptions: {[o.model_dump(exclude_none=True) for o in candidates]}"
+        ctx = f"Requirements: {req.model_dump_json(exclude_none=True)}
+Options: {[o.model_dump(exclude_none=True) for o in candidates]}"
 
         class _Selection(BaseModel):
             selected: list[RestaurantModel]
 
-        result = await self._structured(_Selection, prompt, ctx, cheap=True)
-        result.value = result.value.selected
-        return result
+        async def _real():
+            result = await self._structured(_Selection, prompt, ctx, cheap=True)
+            result.value = result.value.selected
+            return result
+        return await self._with_fallback(_real, lambda: mock_llm.rank_restaurants(req, options), "food_research")
+
 
     # -- 4. Transportation / weather ----------------------------------------
     async def plan_transportation(self, req: TripRequirements, hotel: HotelOptionModel | None) -> LLMResult:
         if self.settings.use_mock_llm:
             return self._mock_result(mock_llm.plan_transportation(req, hotel))
         prompt = load_prompt("transportation")
-        ctx = f"Requirements: {req.model_dump_json(exclude_none=True)}\nHotel: {hotel.model_dump() if hotel else None}"
-        return await self._structured(TransportationPlan, prompt, ctx, cheap=True)
+        ctx = f"Requirements: {req.model_dump_json(exclude_none=True)}
+Hotel: {hotel.model_dump() if hotel else None}"
+        return await self._with_fallback(
+            lambda: self._structured(TransportationPlan, prompt, ctx, cheap=True),
+            lambda: mock_llm.plan_transportation(req, hotel),
+            "transportation",
+        )
 
     async def weather_outlook(self, req: TripRequirements) -> LLMResult:
         if self.settings.use_mock_llm:
             return self._mock_result(mock_llm.weather_outlook(req))
         prompt = load_prompt("weather_season")
-        return await self._structured(WeatherOutlook, prompt, req.model_dump_json(exclude_none=True), cheap=True)
+        return await self._with_fallback(
+            lambda: self._structured(WeatherOutlook, prompt, req.model_dump_json(exclude_none=True), cheap=True),
+            lambda: mock_llm.weather_outlook(req),
+            "weather_season",
+        )
+
 
     # -- 5. Budget ------------------------------------------------------------
     async def optimize_budget(
@@ -223,11 +270,20 @@ class LLMOrchestrator:
             return self._mock_result(mock_llm.optimize_budget(req, flights, hotels, places, restaurants))
         prompt = load_prompt("budget_optimizer")
         ctx = (
-            f"Requirements: {req.model_dump_json(exclude_none=True)}\nFlights: {[f.model_dump(exclude_none=True) for f in flights]}\n"
-            f"Hotels: {[h.model_dump(exclude_none=True) for h in hotels]}\nPlaces: {[p.model_dump(exclude_none=True) for p in places]}\n"
+            f"Requirements: {req.model_dump_json(exclude_none=True)}
+Flights: {[f.model_dump(exclude_none=True) for f in flights]}
+"
+            f"Hotels: {[h.model_dump(exclude_none=True) for h in hotels]}
+Places: {[p.model_dump(exclude_none=True) for p in places]}
+"
             f"Restaurants: {[r.model_dump(exclude_none=True) for r in restaurants]}"
         )
-        return await self._structured(BudgetBreakdown, prompt, ctx)
+        return await self._with_fallback(
+            lambda: self._structured(BudgetBreakdown, prompt, ctx),
+            lambda: mock_llm.optimize_budget(req, flights, hotels, places, restaurants),
+            "budget_optimizer",
+        )
+
 
     # -- 6. Itinerary -----------------------------------------------------------
     async def generate_itinerary(
@@ -240,19 +296,31 @@ class LLMOrchestrator:
                 mock_llm.generate_itinerary(req, destination, flights, hotels, places, restaurants, weather, budget, transportation)
             )
         prompt = load_prompt("itinerary_generator")
-        # Trim data to top 3 per category to keep context small for rate-limited models
         top_flights = [f.model_dump(exclude_none=True) for f in flights[:2]]
         top_hotels = [h.model_dump(exclude_none=True) for h in hotels[:2]]
         top_places = [{"name": p.name, "category": p.category, "rating": p.rating} for p in places[:5]]
         top_restaurants = [{"name": r.name, "cuisine": r.cuisine, "rating": r.rating} for r in restaurants[:5]]
         ctx = (
-            f"Requirements: {req.model_dump_json(exclude_none=True)}\nDestination: {destination}\n"
-            f"Flights: {top_flights}\nHotels: {top_hotels}\n"
-            f"Places: {top_places}\nRestaurants: {top_restaurants}\n"
-            f"Transportation: {transportation.model_dump_json(exclude_none=True) if transportation else '{}'}\n"
-            f"Weather: {weather.model_dump_json(exclude_none=True)}\nBudget: {budget.model_dump_json(exclude_none=True)}"
+            f"Requirements: {req.model_dump_json(exclude_none=True)}
+Destination: {destination}
+"
+            f"Flights: {top_flights}
+Hotels: {top_hotels}
+"
+            f"Places: {top_places}
+Restaurants: {top_restaurants}
+"
+            f"Transportation: {transportation.model_dump_json(exclude_none=True) if transportation else '{}'}
+"
+            f"Weather: {weather.model_dump_json(exclude_none=True)}
+Budget: {budget.model_dump_json(exclude_none=True)}"
         )
-        return await self._structured(ItineraryModel, prompt, ctx)
+        return await self._with_fallback(
+            lambda: self._structured(ItineraryModel, prompt, ctx),
+            lambda: mock_llm.generate_itinerary(req, destination, flights, hotels, places, restaurants, weather, budget, transportation),
+            "itinerary_generator",
+        )
+
 
     # -- 7. Critic --------------------------------------------------------------
     async def critic_review(
@@ -262,15 +330,28 @@ class LLMOrchestrator:
             return self._mock_result(mock_llm.critic_review(req, itinerary, budget, places))
         prompt = load_prompt("critic")
         ctx = (
-            f"Requirements: {req.model_dump_json(exclude_none=True)}\nItinerary: {itinerary.model_dump_json(exclude_none=True)}\n"
+            f"Requirements: {req.model_dump_json(exclude_none=True)}
+Itinerary: {itinerary.model_dump_json(exclude_none=True)}
+"
             f"Budget: {budget.model_dump_json(exclude_none=True)}"
         )
-        return await self._structured(CriticResult, prompt, ctx)
+        return await self._with_fallback(
+            lambda: self._structured(CriticResult, prompt, ctx),
+            lambda: mock_llm.critic_review(req, itinerary, budget, places),
+            "critic",
+        )
+
 
     # -- 8. Conversational modification -----------------------------------------
     async def interpret_modification(self, message: str, req: TripRequirements) -> LLMResult:
         if self.settings.use_mock_llm:
             return self._mock_result(mock_llm.interpret_modification(message, req))
         prompt = load_prompt("modification_interpreter")
-        ctx = f"Current requirements: {req.model_dump_json(exclude_none=True)}\nUser message: {message}"
-        return await self._structured(ModificationInterpretation, prompt, ctx, cheap=True)
+        ctx = f"Current requirements: {req.model_dump_json(exclude_none=True)}
+User message: {message}"
+        return await self._with_fallback(
+            lambda: self._structured(ModificationInterpretation, prompt, ctx, cheap=True),
+            lambda: mock_llm.interpret_modification(message, req),
+            "modification_interpreter",
+        )
+
