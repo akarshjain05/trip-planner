@@ -102,9 +102,16 @@ class TripService:
         await db.commit()
         await db.refresh(run)
 
+        # Clear completed_nodes so requirement_extractor runs again with the new message
+        # Also clear any stale missing_info state so the graph doesn't instantly end or prompt again
+        base_state = trip.state_snapshot or {}
+        base_state["completed_nodes"] = []
+        base_state.pop("awaiting_input", None)
+        base_state.pop("missing_info", None)
+
         await self._run_graph(
             db, trip, run, trigger="initial_plan", user_message=message,
-            base_state=trip.state_snapshot or {},
+            base_state=base_state,
         )
         return trip
 
