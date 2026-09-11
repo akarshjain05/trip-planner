@@ -74,15 +74,17 @@ def build_chat_model(settings: Settings, provider: str | None = None, model: str
     
     if provider == "nvidia":
         from langchain_openai import ChatOpenAI
+        
+        kwargs = {}
+        if not cheap:
+            kwargs["model_kwargs"] = {"extra_body": {"chat_template_kwargs": {"enable_thinking": True}}}
 
         return ChatOpenAI(
             model=model_name,
             temperature=settings.LLM_TEMPERATURE,
             api_key=settings.NVIDIA_API_KEY,
             base_url="https://integrate.api.nvidia.com/v1",
-            model_kwargs={
-                "extra_body": {"chat_template_kwargs": {"enable_thinking": True}}
-            }
+            **kwargs
         )
 
     raise ValueError(f"Unknown or unsupported LLM_PROVIDER: {provider!r}")
