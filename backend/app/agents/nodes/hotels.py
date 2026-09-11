@@ -29,6 +29,18 @@ def make_hotel_research_node(deps: NodeDeps):
 
         raw, hit = await cached(key, deps.settings.CACHE_TTL_HOTELS, fetch)
         options = [HotelOptionModel(**d) for d in raw]
+        
+        target = req.budget_currency or "INR"
+        for h in options:
+            if h.currency and h.currency.upper() != target.upper():
+                try:
+                    rate = await deps.currency_provider.get_rate(h.currency.upper(), target.upper())
+                    h.price_per_night = round(h.price_per_night * rate, 2)
+                    h.currency = target.upper()
+                except Exception as e:
+                    from app.core.logging import get_logger
+                    get_logger(__name__).warning("currency_conversion_failed", provider=h.provider, error=str(e))
+
         result = await deps.orchestrator.rank_hotels(req, options)
         selected: list[HotelOptionModel] = result.value
 

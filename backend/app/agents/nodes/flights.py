@@ -36,6 +36,18 @@ def make_flight_research_node(deps: NodeDeps):
 
         raw, hit = await cached(key, deps.settings.CACHE_TTL_FLIGHTS, fetch)
         options = [FlightOptionModel(**d) for d in raw]
+        
+        target = req.budget_currency or "INR"
+        for f in options:
+            if f.currency and f.currency.upper() != target.upper():
+                try:
+                    rate = await deps.currency_provider.get_rate(f.currency.upper(), target.upper())
+                    f.price = round(f.price * rate, 2)
+                    f.currency = target.upper()
+                except Exception as e:
+                    from app.core.logging import get_logger
+                    get_logger(__name__).warning("currency_conversion_failed", provider=f.provider, error=str(e))
+
         prioritize_cost = state.get("iteration_count", 0) > 0
         result = await deps.orchestrator.rank_flights(req, options, prioritize_cost=prioritize_cost)
         selected: list[FlightOptionModel] = result.value
