@@ -277,28 +277,3 @@ async def reorder_activities(
 
 
 
-from fastapi.responses import StreamingResponse
-import asyncio
-import json
-from app.tools.cache import get_redis
-
-@router.get("/{trip_id}/stream")
-async def trip_stream(request: Request, trip_id: uuid.UUID):
-    async def event_generator():
-        r = get_redis()
-        pubsub = r.pubsub()
-        await pubsub.subscribe(f"trip_stream:{trip_id}")
-        try:
-            while True:
-                if await request.is_disconnected():
-                    break
-                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-                if message is not None:
-                    data = json.loads(message["data"])
-                    yield f"event: {data['type']}\ndata: {message['data']}\n\n"
-                await asyncio.sleep(0.1)
-        finally:
-            await pubsub.unsubscribe(f"trip_stream:{trip_id}")
-            await pubsub.close()
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
-
