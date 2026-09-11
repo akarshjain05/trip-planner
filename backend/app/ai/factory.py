@@ -13,17 +13,22 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from app.core.config import Settings
 
 
-def build_chat_model(settings: Settings) -> BaseChatModel:
+def build_chat_model(settings: Settings, provider: str | None = None, model: str | None = None, cheap: bool = False) -> BaseChatModel:
     """Construct the configured real LLM. Raises if misconfigured -- callers
     should check settings.use_mock_llm first and avoid calling this at all
     in demo mode."""
-    provider = settings.LLM_PROVIDER
+    provider = provider or settings.LLM_PROVIDER
+    
+    if not model:
+        model = settings.model_for_provider(provider, cheap=cheap)
+        
+    model_name = model
 
     if provider == "openai":
         from langchain_openai import ChatOpenAI
 
         return ChatOpenAI(
-            model=settings.LLM_MODEL,
+            model=model_name,
             temperature=settings.LLM_TEMPERATURE,
             api_key=settings.OPENAI_API_KEY,
         )
@@ -32,7 +37,7 @@ def build_chat_model(settings: Settings) -> BaseChatModel:
         from langchain_anthropic import ChatAnthropic
 
         return ChatAnthropic(
-            model=settings.LLM_MODEL,
+            model=model_name,
             temperature=settings.LLM_TEMPERATURE,
             api_key=settings.ANTHROPIC_API_KEY,
         )
@@ -41,7 +46,7 @@ def build_chat_model(settings: Settings) -> BaseChatModel:
         from langchain_google_genai import ChatGoogleGenerativeAI
 
         return ChatGoogleGenerativeAI(
-            model=settings.LLM_MODEL,
+            model=model_name,
             temperature=settings.LLM_TEMPERATURE,
             google_api_key=settings.GOOGLE_API_KEY,
         )
@@ -51,18 +56,17 @@ def build_chat_model(settings: Settings) -> BaseChatModel:
         from langchain_openai import ChatOpenAI
 
         return ChatOpenAI(
-            model=settings.LLM_MODEL,
+            model=model_name,
             temperature=settings.LLM_TEMPERATURE,
             api_key=settings.OPENROUTER_API_KEY,
             base_url=settings.OPENROUTER_BASE_URL,
-            max_tokens=4000,
         )
 
     if provider == "groq":
         from langchain_groq import ChatGroq
 
         return ChatGroq(
-            model_name=settings.LLM_MODEL,
+            model_name=model_name,
             temperature=settings.LLM_TEMPERATURE,
             groq_api_key=settings.GROQ_API_KEY,
         )
@@ -72,10 +76,13 @@ def build_chat_model(settings: Settings) -> BaseChatModel:
         from langchain_openai import ChatOpenAI
 
         return ChatOpenAI(
-            model=settings.LLM_MODEL,
+            model=model_name,
             temperature=settings.LLM_TEMPERATURE,
             api_key=settings.NVIDIA_API_KEY,
             base_url="https://integrate.api.nvidia.com/v1",
+            model_kwargs={
+                "extra_body": {"chat_template_kwargs": {"enable_thinking": True}}
+            }
         )
 
     raise ValueError(f"Unknown or unsupported LLM_PROVIDER: {provider!r}")

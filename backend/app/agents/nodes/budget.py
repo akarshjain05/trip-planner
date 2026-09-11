@@ -20,7 +20,8 @@ def make_budget_optimizer_node(deps: NodeDeps):
         result = await deps.orchestrator.optimize_budget(req, flights, hotels, places, restaurants)
         budget: BudgetBreakdown = result.value
 
-        target_currency = budget.currency or "USD"
+        target_currency = req.budget_currency or budget.currency or "USD"
+        budget.currency = target_currency.upper()
         total = 0.0
         
         for line in budget.lines:

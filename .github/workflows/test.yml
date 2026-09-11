@@ -20,3 +20,29 @@ jobs:
         run: pip install -r backend/requirements.txt
       - name: Run tests
         run: cd backend && pytest
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Start services
+        run: docker compose up -d --build
+        
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: cd frontend && npm ci
+        
+      - name: Install Playwright Browsers
+        run: cd frontend && npx playwright install --with-deps chromium
+        
+      - name: Wait for frontend to be ready
+        run: |
+          timeout 60s bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:5173)" != "200" ]]; do sleep 2; done' || false
+          
+      - name: Run Playwright tests
+        run: cd frontend && npx playwright test --project=chromium

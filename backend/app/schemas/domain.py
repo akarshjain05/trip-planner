@@ -22,8 +22,8 @@ class TripRequirements(BaseModel):
     origin_iata: str | None = Field(default=None, description="Departure airport 3-letter IATA code (e.g. LHR, CDG, JFK, BLR)")
     destination: str | None = Field(default=None, description="Destination city/country/region")
     destination_iata: str | None = Field(default=None, description="Destination airport 3-letter IATA code (e.g. DPS, HND)")
-    start_date: dt.date | None = None
-    end_date: dt.date | None = None
+    start_date: str | None = Field(default=None, description="ISO date or YYYY-MM if exact day unknown")
+    end_date: str | None = Field(default=None, description="ISO date or YYYY-MM if exact day unknown")
     duration_days: int | None = None
     travelers: int = 1
     adults: int = 1

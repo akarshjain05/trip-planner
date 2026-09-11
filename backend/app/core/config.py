@@ -69,8 +69,9 @@ class Settings(BaseSettings):
     DEMO_MODE: bool = True
 
     # --- LLM provider abstraction ---
-    LLM_PROVIDER: Literal["openai", "anthropic", "google", "openrouter", "nvidia", "groq", "mock"] = "mock"
-    LLM_MODEL: str = "gpt-4o-mini"
+    LLM_PROVIDER: Literal["openai", "anthropic", "google", "openrouter", "mock", "nvidia", "groq"] = "mock"
+    LLM_MODEL: str = "gpt-4o"
+    LLM_MODEL_CHEAP: str | None = None
     LLM_TEMPERATURE: float = 0.3
 
     OPENAI_API_KEY: str | None = None
@@ -80,6 +81,65 @@ class Settings(BaseSettings):
     NVIDIA_API_KEY: str | None = None
     GROQ_API_KEY: str | None = None
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+
+    # --- Multi-provider LLM pool ---
+    LLM_PROVIDER_CHAIN: list[str] = Field(default_factory=list)
+
+    LLM_MODEL_GOOGLE: str | None = None
+    LLM_MODEL_OPENROUTER: str | None = None
+    LLM_MODEL_NVIDIA: str | None = None
+    LLM_MODEL_OPENAI: str | None = None
+    LLM_MODEL_ANTHROPIC: str | None = None
+    LLM_MODEL_GROQ: str | None = None
+    
+    LLM_MODEL_CHEAP_GOOGLE: str | None = None
+    LLM_MODEL_CHEAP_OPENROUTER: str | None = None
+    LLM_MODEL_CHEAP_NVIDIA: str | None = None
+    LLM_MODEL_CHEAP_OPENAI: str | None = None
+    LLM_MODEL_CHEAP_ANTHROPIC: str | None = None
+    LLM_MODEL_CHEAP_GROQ: str | None = None
+
+    LLM_DAILY_CAP_GOOGLE: int | None = None
+    LLM_DAILY_CAP_OPENROUTER: int | None = None
+    LLM_DAILY_CAP_NVIDIA: int | None = None
+    LLM_DAILY_CAP_OPENAI: int | None = None
+    LLM_DAILY_CAP_ANTHROPIC: int | None = None
+    LLM_DAILY_CAP_GROQ: int | None = None
+
+    @property
+    def llm_provider_chain(self) -> list[str]:
+        chain = self.LLM_PROVIDER_CHAIN or [self.LLM_PROVIDER]
+        return [p for p in chain if p in self.configured_providers]
+
+    @property
+    def configured_providers(self) -> set[str]:
+        return {p for p, has_key in {
+            "openai": bool(self.OPENAI_API_KEY),
+            "anthropic": bool(self.ANTHROPIC_API_KEY),
+            "google": bool(self.GOOGLE_API_KEY),
+            "openrouter": bool(self.OPENROUTER_API_KEY),
+            "nvidia": bool(self.NVIDIA_API_KEY),
+            "groq": bool(self.GROQ_API_KEY),
+        }.items() if has_key}
+
+    def model_for_provider(self, provider: str, cheap: bool = False) -> str:
+        if cheap:
+            val = getattr(self, f"LLM_MODEL_CHEAP_{provider.upper()}", None)
+            if val:
+                return val
+            if self.LLM_MODEL_CHEAP:
+                return self.LLM_MODEL_CHEAP
+        val = getattr(self, f"LLM_MODEL_{provider.upper()}", None)
+        return val or self.LLM_MODEL
+
+    @property
+    def llm_daily_caps(self) -> dict[str, int]:
+        caps = {}
+        for p in ("google", "openrouter", "nvidia", "openai", "anthropic", "groq"):
+            v = getattr(self, f"LLM_DAILY_CAP_{p.upper()}", None)
+            if v is not None:
+                caps[p] = v
+        return caps
 
     # --- Travel data providers (mock-by-default; real adapters are opt-in) ---
     FLIGHTS_PROVIDER: str = "mock"

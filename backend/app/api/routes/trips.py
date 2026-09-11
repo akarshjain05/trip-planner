@@ -187,6 +187,11 @@ async def get_itinerary(trip_id: uuid.UUID, current_user: User = Depends(get_cur
     await db.refresh(itinerary, attribute_names=["days"])
     for day in itinerary.days:
         await db.refresh(day, attribute_names=["activities"])
+        
+    reqs = (trip.state_snapshot or {}).get("requirements", {})
+    if reqs.get("budget_currency"):
+        itinerary.currency = reqs["budget_currency"]
+        
     return itinerary
 
 
@@ -201,9 +206,11 @@ async def get_budget(trip_id: uuid.UUID, current_user: User = Depends(get_curren
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No budget available yet.")
     await db.refresh(itinerary, attribute_names=["budget_lines"])
 
-    total_budget = (trip.state_snapshot or {}).get("requirements", {}).get("budget_amount")
+    reqs = (trip.state_snapshot or {}).get("requirements", {})
+    total_budget = reqs.get("budget_amount")
+    budget_currency = reqs.get("budget_currency") or itinerary.currency or "USD"
     return BudgetRead(
-        total_budget=total_budget, currency=itinerary.currency,
+        total_budget=total_budget, currency=budget_currency,
         lines=[BudgetLineRead.model_validate(l) for l in itinerary.budget_lines],
         total_estimated=itinerary.total_estimated_cost or 0.0,
         remaining=(total_budget - itinerary.total_estimated_cost) if (total_budget and itinerary.total_estimated_cost is not None) else None,
@@ -267,4 +274,31 @@ async def reorder_activities(
 
     await db.commit()
     return {"status": "success"}
+
+
+
+from fastapi.responses import StreamingResponse
+import asyncio
+import json
+from app.tools.cache import get_redis
+
+@router.get("/{trip_id}/stream")
+async def trip_stream(request: Request, trip_id: uuid.UUID):
+    async def event_generator():
+        r = get_redis()
+        pubsub = r.pubsub()
+        await pubsub.subscribe(f"trip_stream:{trip_id}")
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                if message is not None:
+                    data = json.loads(message["data"])
+                    yield f"event: {data['type']}\ndata: {message['data']}\n\n"
+                await asyncio.sleep(0.1)
+        finally:
+            await pubsub.unsubscribe(f"trip_stream:{trip_id}")
+            await pubsub.close()
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 

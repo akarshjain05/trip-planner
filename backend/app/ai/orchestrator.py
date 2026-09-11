@@ -60,70 +60,39 @@ _COST_PER_1K_INPUT = 0.005
 _COST_PER_1K_OUTPUT = 0.015
 
 
+from app.ai.provider_pool import ProviderPool
+
 class LLMOrchestrator:
     def __init__(self, settings: Settings):
         self.settings = settings
-        self._chat_model = None if settings.use_mock_llm else build_chat_model(settings)
+        self._pool = None if settings.use_mock_llm else ProviderPool(settings)
 
     # -- internal helper: real structured call with usage tracking --------
-    async def _structured(self, schema_cls: type[T], system_prompt: str, user_prompt: str) -> LLMResult:
-        if self._chat_model is None:
+    async def _structured(self, schema_cls: type[T], system_prompt: str, user_prompt: str, cheap: bool = False) -> LLMResult:
+        if self._pool is None:
             raise RuntimeError("Real LLM requested but orchestrator is in mock mode.")
-            
+
         import hashlib
         import json
         from app.tools.cache import cached, make_cache_key
-        
+        from langchain_core.messages import HumanMessage, SystemMessage
+
         schema_hash = hashlib.sha256(
             json.dumps(schema_cls.model_json_schema(), sort_keys=True).encode()
         ).hexdigest()[:12]
-
+        
         cache_key = make_cache_key(
-            "llm_call",
-            schema=schema_cls.__name__,
-            schema_hash=schema_hash,
-            provider=self.settings.LLM_PROVIDER,
-            model=self.settings.LLM_MODEL,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
+            "llm_call", schema=schema_cls.__name__, schema_hash=schema_hash,
+            chain=",".join(self.settings.llm_provider_chain), 
+            cheap=cheap,
+            system_prompt=system_prompt, user_prompt=user_prompt,
         )
 
         async def fetch() -> dict:
-            from langchain_core.messages import HumanMessage, SystemMessage
-            import asyncio
-
-            structured_model = self._chat_model.with_structured_output(schema_cls, include_raw=True)
-
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    result = await structured_model.ainvoke([
-                        SystemMessage(content=system_prompt),
-                        HumanMessage(content=user_prompt),
-                    ])
-                    break
-                except Exception as e:
-                    err_str = str(e)
-                    if "402" in err_str and "in_flight_budget" in err_str:
-                        wait_time = 120
-                        print(f"[RATE LIMIT] Hit 402 OpenRouter in-flight limit, waiting {wait_time}s before retry {attempt+1}/{max_retries}")
-                        await asyncio.sleep(wait_time)
-                        if attempt == max_retries - 1:
-                            raise
-                    elif "429" in err_str or "rate_limit" in err_str.lower():
-                        if attempt == max_retries - 1:
-                            raise
-                        wait_time = 15 * (attempt + 1)
-                        print(f"[RATE LIMIT] Hit 429, waiting {wait_time}s before retry {attempt+1}/{max_retries}")
-                        await asyncio.sleep(wait_time)
-                    else:
-                        raise
-
-            parsed = result.get("parsed")
-            if parsed is None:
-                raise ValueError(f"Model failed to produce valid structured output: {result.get('parsing_error')}")
-
-            usage_meta = getattr(result["raw"], "usage_metadata", None) or {}
+            parsed, raw, provider_used, model_used = await self._pool.ainvoke_structured(
+                schema_cls, [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)], cheap=cheap
+            )
+            usage_meta = getattr(raw, "usage_metadata", None) or {}
             return {
                 "value": parsed.model_dump(mode="json"),
                 "input_tokens": usage_meta.get("input_tokens", 0) or 0,
@@ -137,8 +106,9 @@ class LLMOrchestrator:
             usage = UsageInfo(input_tokens=0, output_tokens=0, used_mock=False, estimated_cost_usd=0.0)
         else:
             in_tok, out_tok = cached_payload["input_tokens"], cached_payload["output_tokens"]
-            cost = (in_tok / 1000) * _COST_PER_1K_INPUT + (out_tok / 1000) * _COST_PER_1K_OUTPUT
-            usage = UsageInfo(in_tok, out_tok, used_mock=False, estimated_cost_usd=cost)
+            # Estimate cost (very rough)
+            cost = (in_tok / 1000) * 0.001 + (out_tok / 1000) * 0.002
+            usage = UsageInfo(input_tokens=in_tok, output_tokens=out_tok, used_mock=False, estimated_cost_usd=cost)
 
         return LLMResult(value=value, usage=usage)
 
@@ -158,20 +128,20 @@ class LLMOrchestrator:
             f"Fields the user was just asked for: {expected_fields or []}\n\n"
             f"User message: {message}"
         )
-        return await self._structured(TripRequirements, prompt, context)
+        return await self._structured(TripRequirements, prompt, context, cheap=True)
 
     async def check_missing_info(self, req: TripRequirements) -> LLMResult:
         if self.settings.use_mock_llm:
             return self._mock_result(mock_llm.check_missing_info(req))
         prompt = load_prompt("missing_info_checker")
-        return await self._structured(MissingInfoResult, prompt, req.model_dump_json(exclude_none=True))
+        return await self._structured(MissingInfoResult, prompt, req.model_dump_json(exclude_none=True), cheap=True)
 
     # -- 2. Destination research --------------------------------------------
     async def research_destinations(self, req: TripRequirements) -> LLMResult:
         if self.settings.use_mock_llm:
             return self._mock_result(mock_llm.research_destinations(req))
         prompt = load_prompt("destination_research")
-        return await self._structured(DestinationResearchResult, prompt, req.model_dump_json(exclude_none=True))
+        return await self._structured(DestinationResearchResult, prompt, req.model_dump_json(exclude_none=True), cheap=True)
 
     # -- 3. Ranking already-fetched provider results ------------------------
     async def rank_flights(self, req: TripRequirements, options: list[FlightOptionModel], prioritize_cost: bool = False) -> LLMResult:
@@ -184,7 +154,7 @@ class LLMOrchestrator:
         class _Selection(BaseModel):
             selected: list[FlightOptionModel]
 
-        result = await self._structured(_Selection, prompt, ctx)
+        result = await self._structured(_Selection, prompt, ctx, cheap=True)
         result.value = result.value.selected
         return result
 
@@ -198,7 +168,7 @@ class LLMOrchestrator:
         class _Selection(BaseModel):
             selected: list[HotelOptionModel]
 
-        result = await self._structured(_Selection, prompt, ctx)
+        result = await self._structured(_Selection, prompt, ctx, cheap=True)
         result.value = result.value.selected
         return result
 
@@ -212,7 +182,7 @@ class LLMOrchestrator:
         class _Selection(BaseModel):
             selected: list[PlaceModel]
 
-        result = await self._structured(_Selection, prompt, ctx)
+        result = await self._structured(_Selection, prompt, ctx, cheap=True)
         result.value = result.value.selected
         return result
 
@@ -226,7 +196,7 @@ class LLMOrchestrator:
         class _Selection(BaseModel):
             selected: list[RestaurantModel]
 
-        result = await self._structured(_Selection, prompt, ctx)
+        result = await self._structured(_Selection, prompt, ctx, cheap=True)
         result.value = result.value.selected
         return result
 
@@ -236,13 +206,13 @@ class LLMOrchestrator:
             return self._mock_result(mock_llm.plan_transportation(req, hotel))
         prompt = load_prompt("transportation")
         ctx = f"Requirements: {req.model_dump_json(exclude_none=True)}\nHotel: {hotel.model_dump() if hotel else None}"
-        return await self._structured(TransportationPlan, prompt, ctx)
+        return await self._structured(TransportationPlan, prompt, ctx, cheap=True)
 
     async def weather_outlook(self, req: TripRequirements) -> LLMResult:
         if self.settings.use_mock_llm:
             return self._mock_result(mock_llm.weather_outlook(req))
         prompt = load_prompt("weather_season")
-        return await self._structured(WeatherOutlook, prompt, req.model_dump_json(exclude_none=True))
+        return await self._structured(WeatherOutlook, prompt, req.model_dump_json(exclude_none=True), cheap=True)
 
     # -- 5. Budget ------------------------------------------------------------
     async def optimize_budget(
@@ -303,4 +273,4 @@ class LLMOrchestrator:
             return self._mock_result(mock_llm.interpret_modification(message, req))
         prompt = load_prompt("modification_interpreter")
         ctx = f"Current requirements: {req.model_dump_json(exclude_none=True)}\nUser message: {message}"
-        return await self._structured(ModificationInterpretation, prompt, ctx)
+        return await self._structured(ModificationInterpretation, prompt, ctx, cheap=True)

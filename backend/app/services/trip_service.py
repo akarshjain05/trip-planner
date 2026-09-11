@@ -196,13 +196,52 @@ class TripService:
             "recursion_limit": 20 + self.settings.MAX_AGENT_ITERATIONS * 10,
         }
 
+        import time
+        from app.tools.cache import get_redis
+        import json
+        from app.agents.state import NODE_ORDER
+
+        r = get_redis()
+        
+        async def _pub(type_: str, agent: str | None, msg: str | None, payload: dict = None):
+            ev = {
+                "type": type_,
+                "agent": agent,
+                "message": msg,
+                "payload": payload or {},
+                "ts": int(time.time() * 1000)
+            }
+            try:
+                await r.publish(f"trip_stream:{trip.id}", json.dumps(ev))
+            except Exception:
+                pass
+
         try:
-            final_state = await graph.ainvoke(initial_state, config)
+            final_state = dict(initial_state)
+            async for event in graph.astream_events(initial_state, config, version="v2"):
+                kind = event["event"]
+                name = event["name"]
+                
+                if name in NODE_ORDER:
+                    emoji = "⏳"
+                    if "flight" in name or "transportation" in name: emoji = "✈️"
+                    elif "hotel" in name or "places" in name: emoji = "🏨"
+                    elif "itinerary" in name or "critic" in name: emoji = "📝"
+                    
+                    if kind == "on_chain_start":
+                        await _pub("agent_started", name, f"{emoji} Working on {name.replace('_', ' ')}...", {})
+                    elif kind == "on_chain_end":
+                        await _pub("agent_completed", name, f"{emoji} Finished {name.replace('_', ' ')}.", {})
+                
+                if kind == "on_chain_end" and isinstance(event.get("data", {}).get("output"), dict) and "trip_id" in event["data"]["output"]:
+                    final_state = event["data"]["output"]
+                    
         except Exception as exc:
             run.status = AgentRunStatus.FAILED
             run.error_message = str(exc)[:2000]
             trip.status = TripStatus.FAILED
             await db.commit()
+            await _pub("error", None, str(exc), {})
             raise
 
         await self._sync_state_to_db(db, trip, final_state)

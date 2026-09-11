@@ -51,7 +51,7 @@ export function DepartureBoard() {
     return () => clearInterval(t);
   }, []);
 
-  const rows = SEQUENCES[idx];
+  const rows = SEQUENCES[idx] ?? SEQUENCES[0]!;
 
   return (
     <div className="rounded-2xl border border-border-soft bg-surface p-5 shadow-2xl shadow-black/40">

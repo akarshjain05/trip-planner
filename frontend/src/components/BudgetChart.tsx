@@ -16,7 +16,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 const COLORS = ["#C9A24B", "#4B9C8C", "#7DBFB1", "#E2C583", "#9098B8", "#616A94", "#B4483A", "#363F6E", "#232B52"];
 
 function formatCurrency(amount: number, currency: string): string {
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
+  return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
 }
 
 export function BudgetChart({ budget }: { budget: Budget }) {

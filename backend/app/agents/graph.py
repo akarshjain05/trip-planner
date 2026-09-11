@@ -29,15 +29,25 @@ from app.agents.state import NODE_ORDER, TripState
 def build_trip_graph(deps: NodeDeps):
     graph = StateGraph(TripState)
 
-    graph.add_node("scheduler", scheduler_node)
+    from opentelemetry import trace
+    tracer = trace.get_tracer(__name__)
+
+    async def wrapped_scheduler(state: TripState):
+        with tracer.start_as_current_span("scheduler") as span:
+            span.set_attribute("node.name", "scheduler")
+            return scheduler_node(state)
+
+    graph.add_node("scheduler", wrapped_scheduler)
     
     def wrap_node(name, node_func):
         async def wrapper(state: TripState):
-            result = await node_func(state)
-            if result is None:
-                result = {}
-            result["completed_nodes"] = [name]
-            return result
+            with tracer.start_as_current_span(name) as span:
+                span.set_attribute("node.name", name)
+                result = await node_func(state)
+                if result is None:
+                    result = {}
+                result["completed_nodes"] = [name]
+                return result
         return wrapper
 
     graph.add_node("requirement_extractor", wrap_node("requirement_extractor", make_requirement_extractor_node(deps)))

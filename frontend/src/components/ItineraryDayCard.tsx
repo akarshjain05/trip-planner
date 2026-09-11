@@ -33,7 +33,7 @@ const ACTIVITY_ICON: Record<Activity["activity_type"], string> = {
 
 function formatCurrency(amount: number | null, currency: string): string {
   if (amount === null || amount === 0) return "";
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
+  return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
 }
 
 function SortableActivityItem({ activity, currency }: { activity: Activity; currency: string }) {
