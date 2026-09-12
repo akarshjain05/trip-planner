@@ -57,6 +57,17 @@ graph LR
     
     replan -.->|Re-runs only affected agents| flights
     replan -.-> hotels
+    
+    %% Invisible spacer nodes to force the GitHub controls down
+    spacer1[ ]:::spacerNode
+    spacer2[ ]:::spacerNode
+    spacer3[ ]:::spacerNode
+    
+    food ~~~ spacer1
+    replan ~~~ spacer2
+    spacer1 ~~~ spacer3
+    
+    classDef spacerNode fill:none,stroke:none,color:transparent
 ```
 
 See [`docs/agent-architecture.md`](docs/agent-architecture.md) for the full
