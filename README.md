@@ -27,7 +27,7 @@ The output of every stage is the structured, typed input to the next —
 there is no single call that hallucinates an entire trip:
 
 ```mermaid
-graph TD
+graph LR
     classDef default fill:#1a1a2e,stroke:#2b2b40,stroke-width:1px,color:#a5a5b4
     classDef startNode fill:#0d233a,stroke:#1a4b77,stroke-width:2px,color:#64b5f6,rx:10,ry:10
     classDef parallelNode fill:#152b22,stroke:#1e503a,stroke-width:2px,color:#4db6ac,rx:8,ry:8
