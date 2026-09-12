@@ -29,7 +29,7 @@ export function TripDetailPage() {
   });
 
   const isPlanning = status?.status === "planning";
-  const { events } = useAgentStream(tripId, isPlanning);
+  const { events } = useAgentStream(tripId, status?.latest_agent_run_id, isPlanning);
 
   // Once planning finishes, make sure dependent data refetches.
   const [lastKnownStatus, setLastKnownStatus] = useState<string | undefined>();

@@ -49,14 +49,16 @@ async def emit_event(
                 agent_name=agent_name, message=message, payload=payload,
             ))
             await session.commit()
-    except Exception:
-        pass  # Progress logging must never break the planning run itself.
+    except Exception as e:
+        from app.core.logging import get_logger
+        get_logger('progress').error(f'Redis publish failed: {e}')  # Progress logging must never break the planning run itself.
 
     try:
         r = get_redis()
         await r.publish(_channel(trip_id), json.dumps(record, default=str))
-    except Exception:
-        pass
+    except Exception as e:
+        from app.core.logging import get_logger
+        get_logger('progress').error(f'Redis publish failed: {e}')
 
 
 async def subscribe(trip_id: str):

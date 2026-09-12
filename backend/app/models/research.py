@@ -93,7 +93,7 @@ class ResearchSource(UUIDPKMixin, TimestampMixin, Base):
 
     agent_run_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agent_runs.id", ondelete="CASCADE"))
     url: Mapped[str] = mapped_column(String(1024))
-    title: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
     source: Mapped[str | None] = mapped_column(String(255), nullable=True)
     extracted_facts: Mapped[str | None] = mapped_column(Text, nullable=True)
     confidence: Mapped[float] = mapped_column(Float, default=0.5)

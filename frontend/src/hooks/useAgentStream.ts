@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentProgressEvent } from "../types";
-import { streamUrl } from "../services/api";
+import { streamUrl, getAgentRun } from "../services/api";
 
-/**
- * Subscribes to the live SSE agent-progress stream for a trip. Kept as a
- * small dedicated hook (rather than inlined in the page) so the Agent
- * Execution View and any future consumer (e.g. a notifications bell)
- * can share one connection-management implementation.
- */
-export function useAgentStream(tripId: string | null, active: boolean) {
+export function useAgentStream(tripId: string | null, runId: string | null | undefined, active: boolean) {
   const [events, setEvents] = useState<AgentProgressEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const sourceRef = useRef<EventSource | null>(null);
@@ -18,37 +12,74 @@ export function useAgentStream(tripId: string | null, active: boolean) {
   useEffect(() => {
     if (!tripId || !active) return;
 
-    const es = new EventSource(streamUrl(tripId));
-    sourceRef.current = es;
+    let isMounted = true;
 
-    es.onopen = () => setConnected(true);
-    es.onerror = () => setConnected(false);
+    const connectStream = () => {
+      const es = new EventSource(streamUrl(tripId));
+      sourceRef.current = es;
 
-    const handler = (e: MessageEvent) => {
-      try {
-        const parsed: AgentProgressEvent = JSON.parse(e.data);
-        setEvents((prev) => [...prev, parsed]);
-      } catch {
-        // ignore malformed frames
-      }
+      es.onopen = () => {
+        if (isMounted) setConnected(true);
+      };
+      es.onerror = () => {
+        if (isMounted) setConnected(false);
+      };
+
+      const handler = (e: MessageEvent) => {
+        if (!isMounted) return;
+        try {
+          const parsed: AgentProgressEvent = JSON.parse(e.data);
+          setEvents((prev) => [...prev, parsed]);
+        } catch {
+          // ignore malformed frames
+        }
+      };
+
+      const knownTypes = [
+        "agent_started", "agent_completed", "tool_started", "tool_completed",
+        "search_result", "budget_updated", "critic_result", "replanning",
+        "finalizing", "completed", "error", "message",
+      ];
+      knownTypes.forEach((t) => es.addEventListener(t, handler));
+
+      return () => {
+        knownTypes.forEach((t) => es.removeEventListener(t, handler));
+        es.close();
+        if (isMounted) {
+          sourceRef.current = null;
+          setConnected(false);
+        }
+      };
     };
 
-    // The server sets `event: <type>` per frame; listen broadly by
-    // attaching the same handler to every known type plus the default.
-    const knownTypes = [
-      "agent_started", "agent_completed", "tool_started", "tool_completed",
-      "search_result", "budget_updated", "critic_result", "replanning",
-      "finalizing", "completed", "error", "message",
-    ];
-    knownTypes.forEach((t) => es.addEventListener(t, handler));
+    if (runId) {
+      getAgentRun(runId).then((runData) => {
+        if (!isMounted) return;
+        const history = (runData.events || []).map((e: any) => ({
+          type: e.event_type,
+          agent: e.agent_name,
+          message: e.message,
+          payload: e.payload,
+          ts: new Date(e.created_at).getTime(),
+        }));
+        setEvents(history);
+        connectStream();
+      }).catch((err) => {
+        console.error("Failed to fetch historical events", err);
+        if (isMounted) connectStream();
+      });
+    } else {
+      connectStream();
+    }
 
     return () => {
-      knownTypes.forEach((t) => es.removeEventListener(t, handler));
-      es.close();
-      sourceRef.current = null;
-      setConnected(false);
+      isMounted = false;
+      if (sourceRef.current) {
+        sourceRef.current.close();
+        sourceRef.current = null;
+      }
     };
-  }, [tripId, active]);
+  }, [tripId, runId, active]);
 
   return { events, connected, reset };
 }

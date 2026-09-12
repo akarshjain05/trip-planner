@@ -137,3 +137,6 @@ export const reorderActivities = (tripId: string, dayId: string, activityIds: st
   api.put(`/trips/${tripId}/itinerary/days/${dayId}/activities/reorder`, { activity_ids: activityIds }).then((r) => r.data);
 
 export const fetchAdminStats = () => api.get("/admin/stats").then((r) => r.data);
+
+// --- Agent Runs ---
+export const getAgentRun = (runId: string) => api.get(`/agent-runs/${runId}`).then((r) => r.data);

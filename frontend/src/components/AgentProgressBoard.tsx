@@ -1,5 +1,5 @@
-import { motion, AnimatePresence } from "framer-motion";
-import { useMemo } from "react";
+import { motion } from "framer-motion";
+import { useMemo, useEffect, useRef } from "react";
 import type { AgentProgressEvent } from "../types";
 
 const AGENT_LABELS: Record<string, string> = {
@@ -53,8 +53,17 @@ const STATUS_STYLE: Record<Status, { label: string; className: string }> = {
 
 export function AgentProgressBoard({ events }: { events: AgentProgressEvent[] }) {
   const statuses = useMemo(() => deriveStatuses(events), [events]);
-  const latestMessage = [...events].reverse().find((e) => e.message)?.message;
   const iteration = events.filter((e) => e.type === "replanning").length;
+
+  const messages = events.filter((e) => e.message);
+  const recentMessages = messages.slice(-50);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [events]);
 
   return (
     <motion.div layout className="rounded-2xl border border-border-soft bg-surface p-5">
@@ -65,7 +74,7 @@ export function AgentProgressBoard({ events }: { events: AgentProgressEvent[] })
         )}
       </div>
 
-      <div className="rounded-lg bg-bg border border-border overflow-hidden">
+      <div className="rounded-lg bg-bg border border-border overflow-hidden mb-4">
         <div className="grid grid-cols-[1fr_auto] gap-x-4 px-4 py-2.5 border-b border-border">
           <span className="font-mono text-[10px] text-text-faint tracking-widest">AGENT</span>
           <span className="font-mono text-[10px] text-text-faint tracking-widest">STATUS</span>
@@ -87,19 +96,34 @@ export function AgentProgressBoard({ events }: { events: AgentProgressEvent[] })
         })}
       </div>
 
-      <AnimatePresence mode="wait">
-        {latestMessage && (
-          <motion.p 
-            key={latestMessage}
-            initial={{ opacity: 0, y: 5 }} 
-            animate={{ opacity: 1, y: 0 }} 
-            exit={{ opacity: 0, y: -5 }} 
-            className="text-xs text-text-muted mt-3 px-1 leading-relaxed"
+      {recentMessages.length > 0 && (
+        <div className="rounded-lg bg-[#0a0a0a] border border-border-soft overflow-hidden flex flex-col">
+          <div className="px-3 py-2 border-b border-white/5 flex items-center gap-2 bg-[#111]">
+             <div className="flex gap-1.5">
+               <div className="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
+               <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></div>
+               <div className="w-2.5 h-2.5 rounded-full bg-green-500/80"></div>
+             </div>
+             <span className="font-mono text-[9px] text-white/30 uppercase tracking-widest ml-2">Live Agent Logs</span>
+          </div>
+          <div 
+            ref={scrollRef}
+            className="h-40 overflow-y-auto p-3 font-mono text-[11px] leading-relaxed flex flex-col gap-1 scroll-smooth"
           >
-            {latestMessage}
-          </motion.p>
-        )}
-      </AnimatePresence>
+            {recentMessages.map((msg, idx) => (
+              <div key={idx} className="flex gap-3">
+                <span className="text-white/30 shrink-0">
+                  {new Date(msg.ts).toISOString().substring(11, 19)}
+                </span>
+                <span className={msg.type === "message" ? "text-white/60 break-all" : "text-accent"}>
+                  {msg.agent ? `[${AGENT_LABELS[msg.agent] || msg.agent}] ` : ""}
+                  {msg.message}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
   </motion.div>
   );
 }

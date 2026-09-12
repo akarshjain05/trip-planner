@@ -156,7 +156,7 @@ class TripService:
 
         base_state = {
             **(trip.state_snapshot or {}),
-            "replan_target": ["destination_research"],
+            "replan_target": [],
             "iteration_count": 0,
             "critic_result": {},
             "final": False,
@@ -165,6 +165,9 @@ class TripService:
             "input_tokens": 0,
             "output_tokens": 0,
             "estimated_cost_usd": 0.0,
+            "awaiting_input": False,
+            "missing_info": {},
+            "requirements": {},
         }
         # Also remove completed_nodes so we start totally fresh
         base_state.pop("completed_nodes", None)
@@ -176,6 +179,8 @@ class TripService:
 
     # ------------------------------------------------------------------
     async def _run_graph(
+        print(f"RUNNING GRAPH with initial_state={initial_state}")
+
         self, db: AsyncSession, trip: Trip, run: AgentRun, *, trigger: str, user_message: str, base_state: dict,
     ) -> None:
         deps = self._build_deps()
@@ -201,7 +206,33 @@ class TripService:
         }
 
         try:
-            final_state = await graph.ainvoke(initial_state, config)
+            import json
+            import time
+            import collections
+            from redis.asyncio import Redis
+            redis_client = Redis.from_url(self.settings.REDIS_URL)
+            chan = f"trip_planner:events:{trip.id}"
+            
+            accumulated = collections.defaultdict(str)
+
+            async for event in graph.astream_events(initial_state, config, version="v1"):
+                kind = event["event"]
+                name = event.get("name", "")
+                
+                payload = None
+                if kind == "on_chat_model_stream":
+                    chunk = event["data"]["chunk"]
+                    if hasattr(chunk, "content") and isinstance(chunk.content, str) and chunk.content:
+                        if name == "itinerary_generator":
+                            accumulated[name] += chunk.content
+                            payload = {"type": "message", "agent": name, "message": accumulated[name], "payload": {}, "ts": int(time.time()*1000)}
+
+                if payload:
+                    await redis_client.publish(chan, json.dumps(payload))
+
+            final_state = (await graph.aget_state(config)).values
+            await redis_client.close()
+
         except Exception as exc:
             run.status = AgentRunStatus.FAILED
             run.error_message = str(exc)[:2000]

@@ -176,7 +176,7 @@ class ProviderPool:
                             parsed = schema_cls.model_validate_json(json_str)
                             break
                         except Exception as e:
-                            logger.error(f"NVIDIA API failed attempt {attempt}: {e}\nContent: {full_content[:200]}")
+                            logger.error(f"NVIDIA API failed attempt {attempt}: {repr(e)}\nContent: {full_content[:200]}")
                             if attempt == max_retries - 1:
                                 raise
                             await asyncio.sleep(2 * (attempt + 1))
