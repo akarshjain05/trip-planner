@@ -49,6 +49,7 @@ def build_chat_model(settings: Settings, provider: str | None = None, model: str
             model=model_name,
             temperature=settings.LLM_TEMPERATURE,
             google_api_key=settings.GOOGLE_API_KEY,
+            timeout=45,
         )
 
     if provider == "openrouter":
@@ -60,17 +61,17 @@ def build_chat_model(settings: Settings, provider: str | None = None, model: str
             temperature=settings.LLM_TEMPERATURE,
             api_key=settings.OPENROUTER_API_KEY,
             base_url=settings.OPENROUTER_BASE_URL,
+            timeout=45,
         )
 
     if provider == "groq":
         from langchain_groq import ChatGroq
-
         return ChatGroq(
             model_name=model_name,
             temperature=settings.LLM_TEMPERATURE,
-            groq_api_key=settings.GROQ_API_KEY,
+            api_key=settings.GROQ_API_KEY,
+            timeout=45,
         )
-
     
     if provider == "nvidia":
         from langchain_openai import ChatOpenAI
@@ -84,6 +85,7 @@ def build_chat_model(settings: Settings, provider: str | None = None, model: str
             temperature=settings.LLM_TEMPERATURE,
             api_key=settings.NVIDIA_API_KEY,
             base_url="https://integrate.api.nvidia.com/v1",
+            timeout=45,
             **kwargs
         )
 
