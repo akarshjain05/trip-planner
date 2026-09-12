@@ -7,7 +7,7 @@ Rules:
 - Only fill fields you can support from the text; leave others null/empty.
 - Infer duration_days from explicit dates or explicit day counts. Also infer from common terms (e.g. "weekend" = 2 days, "long weekend" = 3 or 4 days). Leave null if completely unspecified.
 - If you identify an origin or destination city, you MUST also populate origin_iata and destination_iata with their standard 3-letter uppercase IATA codes (e.g., LHR, LIS, JFK).
-- If the origin or destination is a broad region, state, or country (e.g. "Kerala", "Europe", "Japan") that does not have a single specific airport code, extract it as the destination but leave the IATA code null. Do not leave the destination field null just because you don't know the IATA code.
+- If the origin or destination is a broad region, state, or country (e.g. "Kerala", "Europe", "Japan"), extract it as the destination AND populate the IATA code with the primary airport of its capital city or main hub (e.g., TRV for Kerala, CDG/FRA/LHR for Europe, HND/NRT for Japan). Do not leave the destination field null.
 - Normalize budget_amount to a plain number and budget_currency to an ISO-ish code
   (e.g. "₹1,50,000" -> 150000, "INR").
 - likes/activity_preferences and dislikes/avoid must not overlap.
