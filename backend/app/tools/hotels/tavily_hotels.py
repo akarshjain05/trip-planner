@@ -10,7 +10,7 @@ class TavilyHotelProvider:
     def __init__(self, settings: Settings):
         self._key = settings.TAVILY_API_KEY
 
-    async def search_hotels(self, destination: str, check_in: dt.date, check_out: dt.date, adults: int) -> list[HotelOptionModel]:
+    async def search_hotels(self, destination: str, check_in: dt.date, check_out: dt.date, adults: int = 1, rooms: int = 1, query: str | None = None) -> list[HotelOptionModel]:
         if not self._key:
             raise ProviderError("tavily_hotels", "TAVILY_API_KEY not configured", retriable=False)
             

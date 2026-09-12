@@ -16,7 +16,7 @@ _TIERS = [
 class MockHotelProvider:
     async def search_hotels(
         self, destination: str, check_in: dt.date | None = None, check_out: dt.date | None = None,
-        adults: int = 1, rooms: int = 1,
+        adults: int = 1, rooms: int = 1, query: str | None = None,
     ) -> list[HotelOptionModel]:
         seed = abs(hash((destination.lower(), str(check_in), rooms))) % (2**32)
         rng = random.Random(seed)

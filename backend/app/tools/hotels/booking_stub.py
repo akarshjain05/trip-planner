@@ -19,7 +19,7 @@ class BookingComHotelProvider:
 
     async def search_hotels(
         self, destination: str, check_in: dt.date | None = None, check_out: dt.date | None = None,
-        adults: int = 1, rooms: int = 1,
+        adults: int = 1, rooms: int = 1, query: str | None = None,
     ) -> list[HotelOptionModel]:
         raise ProviderError(
             "booking_com",
