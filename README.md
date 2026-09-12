@@ -26,17 +26,37 @@ targeted rework — before you ever see it.
 The output of every stage is the structured, typed input to the next —
 there is no single call that hallucinates an entire trip:
 
-```
-requirements → destination →  ┬─ flights ──→ places ─┬→ transportation
-                               └─ hotels ───→ food ───┘        ↓
-                                                           weather → budget
-                                                                     ↓
-                                                             itinerary → critic
-                                                                           │
-                                              ┌───────────────────────────┘
-                                              ↓ rejected
-                                          replanner → (only the affected
-                                                        agents re-run)
+```mermaid
+graph TD
+    classDef default fill:#1a1a2e,stroke:#2b2b40,stroke-width:1px,color:#a5a5b4
+    classDef startNode fill:#0d233a,stroke:#1a4b77,stroke-width:2px,color:#64b5f6,rx:10,ry:10
+    classDef parallelNode fill:#152b22,stroke:#1e503a,stroke-width:2px,color:#4db6ac,rx:8,ry:8
+    classDef assembleNode fill:#231a3a,stroke:#4a327a,stroke-width:2px,color:#b39ddb,rx:8,ry:8
+    classDef criticNode fill:#3a2a0d,stroke:#77521a,stroke-width:2px,color:#ffb74d,rx:15,ry:15
+    classDef errorNode fill:#3a1414,stroke:#7a2424,stroke-width:2px,color:#e57373,rx:8,ry:8
+    
+    req[Extract Requirements]:::startNode --> dest[Research Destination]:::startNode
+    
+    dest --> flights[Rank Flights]:::parallelNode
+    dest --> hotels[Rank Hotels]:::parallelNode
+    
+    flights --> places[Rank Places]:::parallelNode
+    hotels --> food[Rank Food]:::parallelNode
+    
+    places --> trans[Plan Transportation]:::assembleNode
+    food --> trans
+    
+    trans --> weather[Weather Outlook]:::assembleNode
+    weather --> budget[Optimize Budget]:::assembleNode
+    budget --> itin[Generate Itinerary]:::assembleNode
+    
+    itin --> critic{Critic Review}:::criticNode
+    
+    critic -->|Approved| done([Final Itinerary]):::startNode
+    critic -->|Rejected| replan[Targeted Replanner]:::errorNode
+    
+    replan -.->|Re-runs only affected agents| flights
+    replan -.-> hotels
 ```
 
 See [`docs/agent-architecture.md`](docs/agent-architecture.md) for the full
