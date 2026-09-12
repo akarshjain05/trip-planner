@@ -11,7 +11,7 @@ class SerpApiHotelProvider:
         self._key = getattr(settings, "SERPAPI_KEY", None)
 
     async def search_hotels(
-        self, destination: str, check_in: dt.date | None, check_out: dt.date | None, adults: int = 2
+        self, destination: str, check_in: dt.date | None, check_out: dt.date | None, adults: int = 2, rooms: int = 1, query: str | None = None
     ) -> list[HotelOptionModel]:
         if not self._key:
             raise ProviderError("serpapi_hotels", "SERPAPI_KEY not configured", retriable=False)
@@ -26,7 +26,7 @@ class SerpApiHotelProvider:
                 "https://serpapi.com/search.json",
                 params={
                     "engine": "google_hotels",
-                    "q": f"Hotels in {destination}",
+                    "q": f"{query} in {destination}" if query else f"Hotels in {destination}",
                     "check_in_date": str(check_in),
                     "check_out_date": str(check_out),
                     "adults": adults,

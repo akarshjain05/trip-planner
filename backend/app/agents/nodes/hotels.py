@@ -17,13 +17,14 @@ def make_hotel_research_node(deps: NodeDeps):
         start = dt.date.fromisoformat(req.start_date) if isinstance(req.start_date, str) else req.start_date
         end = dt.date.fromisoformat(req.end_date) if isinstance(req.end_date, str) else req.end_date
 
-        key = make_cache_key("hotels", destination=destination, checkin=str(start))
+        key = make_cache_key("hotels", destination=destination, checkin=str(start), prefs=",".join(req.hotel_preferences))
 
         async def fetch():
+            query = ", ".join(req.hotel_preferences) if req.hotel_preferences else None
             options = await with_provider_fallback(
                 deps, state, "hotel_research",
-                deps.hotel_provider.search_hotels(destination, start, end, max(req.adults, 1)),
-                MockHotelProvider().search_hotels(destination, start, end, max(req.adults, 1)),
+                deps.hotel_provider.search_hotels(destination, start, end, max(req.adults, 1), 1, query),
+                MockHotelProvider().search_hotels(destination, start, end, max(req.adults, 1), 1, query),
             )
             return [o.model_dump(mode="json") for o in options]
 
