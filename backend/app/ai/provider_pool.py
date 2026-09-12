@@ -166,10 +166,17 @@ class ProviderPool:
                                 delta = chunk.choices[0].delta
                                 if delta.content:
                                     full_content += delta.content
+                            
+                            import re
+                            json_str = full_content.strip()
+                            match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', json_str)
+                            if match:
+                                json_str = match.group(1)
                                     
-                            parsed = schema_cls.model_validate_json(full_content)
+                            parsed = schema_cls.model_validate_json(json_str)
                             break
                         except Exception as e:
+                            logger.error(f"NVIDIA API failed attempt {attempt}: {e}\nContent: {full_content[:200]}")
                             if attempt == max_retries - 1:
                                 raise
                             await asyncio.sleep(2 * (attempt + 1))
