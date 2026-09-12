@@ -128,10 +128,62 @@ class ProviderPool:
                 continue
 
             try:
+                if provider == "nvidia":
+                    import json
+                    import asyncio
+                    from openai import AsyncOpenAI
+                    from langchain_core.messages import SystemMessage, HumanMessage
+                    
+                    sys_msg = next((m.content for m in messages if isinstance(m, SystemMessage)), "")
+                    hum_msg = next((m.content for m in messages if isinstance(m, HumanMessage)), "")
+                    
+                    client = AsyncOpenAI(
+                        base_url="https://integrate.api.nvidia.com/v1",
+                        api_key=self.settings.NVIDIA_API_KEY,
+                        timeout=60.0
+                    )
+                    
+                    schema_str = json.dumps(schema_cls.model_json_schema())
+                    
+                    max_retries = 2
+                    parsed = None
+                    for attempt in range(max_retries):
+                        try:
+                            completion = await client.chat.completions.create(
+                                model=model_name,
+                                messages=[
+                                    {"role": "system", "content": sys_msg},
+                                    {"role": "user", "content": hum_msg + f"\n\nIMPORTANT: Return ONLY valid JSON matching this schema:\n{schema_str}"}
+                                ],
+                                response_format={"type": "json_object"},
+                                stream=True,
+                                extra_body={"chat_template_kwargs": {"enable_thinking": not cheap}}
+                            )
+                            
+                            full_content = ""
+                            async for chunk in completion:
+                                if not chunk.choices: continue
+                                delta = chunk.choices[0].delta
+                                if delta.content:
+                                    full_content += delta.content
+                                    
+                            parsed = schema_cls.model_validate_json(full_content)
+                            break
+                        except Exception as e:
+                            if attempt == max_retries - 1:
+                                raise
+                            await asyncio.sleep(2 * (attempt + 1))
+                            
+                    class MockRaw:
+                        usage_metadata = {"input_tokens": 0, "output_tokens": 0}
+                    
+                    await self._bump_daily_count(provider)
+                    return parsed, MockRaw(), provider, model_name
+
                 chat_model = self._model_for(provider, cheap=cheap)
                 structured = chat_model.with_structured_output(schema_cls, include_raw=True)
                 
-                # Retry loop inside the provider pool
+                # Retry loop inside the provider pool for non-NVIDIA providers
                 max_retries = 2
                 result = None
                 for attempt in range(max_retries):
