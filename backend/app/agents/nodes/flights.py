@@ -21,16 +21,17 @@ def make_flight_research_node(deps: NodeDeps):
         search_orig = req.origin_iata or origin
         
         start = dt.date.fromisoformat(req.start_date) if isinstance(req.start_date, str) else req.start_date
+        end = dt.date.fromisoformat(req.end_date) if isinstance(req.end_date, str) else req.end_date
 
-        key = make_cache_key("flights", origin=search_orig, destination=search_dest, depart=str(start))
+        key = make_cache_key("flights", origin=search_orig, destination=search_dest, depart=str(start), ret=str(end))
 
         async def fetch():
             if origin == "Unspecified" or destination == "Unspecified":
                 return []
             options = await with_provider_fallback(
                 deps, state, "flight_research",
-                deps.flight_provider.search_flights(search_orig, search_dest, start, None, max(req.adults, 1)),
-                MockFlightProvider().search_flights(search_orig, search_dest, start, None, max(req.adults, 1)),
+                deps.flight_provider.search_flights(search_orig, search_dest, start, end, max(req.adults, 1)),
+                MockFlightProvider().search_flights(search_orig, search_dest, start, end, max(req.adults, 1)),
             )
             return [o.model_dump(mode="json") for o in options]
 
