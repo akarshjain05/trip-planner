@@ -28,12 +28,29 @@ def make_flight_research_node(deps: NodeDeps):
         async def fetch():
             if origin == "Unspecified" or destination == "Unspecified":
                 return []
-            options = await with_provider_fallback(
+            
+            # 1. Search outbound flights (one-way)
+            outbound = await with_provider_fallback(
                 deps, state, "flight_research",
-                deps.flight_provider.search_flights(search_orig, search_dest, start, end, max(req.adults, 1)),
-                MockFlightProvider().search_flights(search_orig, search_dest, start, end, max(req.adults, 1)),
+                deps.flight_provider.search_flights(search_orig, search_dest, start, None, max(req.adults, 1)),
+                MockFlightProvider().search_flights(search_orig, search_dest, start, None, max(req.adults, 1)),
             )
-            return [o.model_dump(mode="json") for o in options]
+            
+            # 2. Search return flights (one-way, origin and destination reversed)
+            inbound = []
+            if end:
+                inbound = await with_provider_fallback(
+                    deps, state, "flight_research",
+                    deps.flight_provider.search_flights(search_dest, search_orig, end, None, max(req.adults, 1)),
+                    MockFlightProvider().search_flights(search_dest, search_orig, end, None, max(req.adults, 1)),
+                )
+            
+            # Take top 6 cheapest from each leg to ensure the LLM sees both directions
+            outbound_top = sorted(outbound, key=lambda f: f.price or 999999)[:6]
+            inbound_top = sorted(inbound, key=lambda f: f.price or 999999)[:6]
+            
+            combined = outbound_top + inbound_top
+            return [o.model_dump(mode="json") for o in combined]
 
         raw, hit = await cached(key, deps.settings.CACHE_TTL_FLIGHTS, fetch)
         options = [FlightOptionModel(**d) for d in raw]
