@@ -4,10 +4,19 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 
 export function AdminDashboardPage() {
-  const { data, isLoading } = useQuery({ queryKey: ["admin-stats"], queryFn: fetchAdminStats });
+  const { data, isLoading, error } = useQuery({ queryKey: ["admin-stats"], queryFn: fetchAdminStats });
 
   if (isLoading) {
     return <div className="max-w-5xl mx-auto px-6 py-16 text-text-muted">Loading dashboard...</div>;
+  }
+
+  if (error || !data) {
+    return (
+      <div className="max-w-5xl mx-auto px-6 py-16">
+        <h1 className="text-2xl text-stamp mb-4">Access Denied</h1>
+        <p className="text-text-muted">You do not have permission to view the admin dashboard.</p>
+      </div>
+    );
   }
 
   const { aggregate, recent_runs } = data;
