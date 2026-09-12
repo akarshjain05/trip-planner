@@ -6,6 +6,7 @@ CRITICAL RULES:
 - Keep descriptions VERY SHORT (under 15 words each).
 - Use NULL for optional fields you don't have data for. Do NOT invent data.
 - If an activity (like a flight, meal, or transfer) has a known price/cost in the provided context, you MUST map it to the estimated_cost field.
+- If a flight option is a round-trip (has a return date), divide its total price by 2 and assign half the cost to the departure flight activity, and half to the return flight activity.
 - If the user did not specify exact travel dates, use realistic future dates starting late 2026.
 - Limit to 4-5 activities per day maximum.
 - Do NOT repeat the same place/restaurant across days.
