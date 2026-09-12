@@ -32,6 +32,7 @@ class Itinerary(UUIDPKMixin, TimestampMixin, Base):
     __tablename__ = "itineraries"
 
     trip_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("trips.id", ondelete="CASCADE"))
+    agent_run_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agent_runs.id", ondelete="SET NULL"), nullable=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[ItineraryStatus] = mapped_column(Enum(ItineraryStatus, native_enum=False), default=ItineraryStatus.DRAFT)
     total_estimated_cost: Mapped[float | None] = mapped_column(Float, nullable=True)

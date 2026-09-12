@@ -336,7 +336,7 @@ def generate_itinerary(
             day_number=d,
             date=weather_day.date if weather_day else None,
             title=f"Day {d} — {'Arrival' if d == 1 else ('Departure' if d == days else destination)}",
-            weather_summary=f"{weather_day.condition}, {weather_day.temp_high_c:.0f}°C" if weather_day else None,
+            weather_summary=f"{weather_day.condition}, {weather_day.temp_high_c:.0f}°C" if weather_day and weather_day.temp_high_c is not None else (weather_day.condition if weather_day else None),
             activities=activities,
         ))
 

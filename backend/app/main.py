@@ -43,7 +43,7 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY or "dev_secret")
+app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET_KEY or "dev_secret")
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -75,9 +75,33 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
+from app.db.session import AsyncSessionLocal
+from sqlalchemy import text
+from app.tools.cache import get_redis
+
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "demo_mode": settings.DEMO_MODE, "using_mock_llm": settings.use_mock_llm}
+    db_ok = False
+    try:
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("SELECT 1"))
+            db_ok = True
+    except Exception:
+        pass
+        
+    redis_ok = False
+    try:
+        r = get_redis()
+        await r.ping()
+        redis_ok = True
+    except Exception:
+        pass
+
+    if not db_ok or not redis_ok:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail={"status": "error", "db": db_ok, "redis": redis_ok})
+
+    return {"status": "ok", "db": "ok", "redis": "ok", "demo_mode": settings.DEMO_MODE, "using_mock_llm": settings.use_mock_llm}
 
 
 app.include_router(auth.router, prefix=settings.API_PREFIX)

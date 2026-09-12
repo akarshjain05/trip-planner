@@ -43,8 +43,8 @@ class TavilyFoodProvider:
                 name=title,
                 cuisine=c_str,
                 rating=4.5,
-                price_level="moderate",
+                price_level="$$",
                 is_mock=False
             ))
             
-        return restaurants or [RestaurantModel(name=f"Popular Restaurant in {destination}", cuisine=c_str, rating=4.5, price_level="moderate", is_mock=False)]
+        return restaurants or [RestaurantModel(name=f"Popular Restaurant in {destination}", cuisine=c_str, rating=4.5, price_level="$$", is_mock=False)]

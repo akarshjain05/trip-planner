@@ -48,6 +48,4 @@ def make_missing_info_checker_node(deps: NodeDeps):
     return node
 
 
-def route_after_missing_info(state: TripState) -> str:
-    from langgraph.graph import END
-    return END if state.get("awaiting_input") else "destination_research"
+

@@ -41,8 +41,9 @@ def make_budget_optimizer_node(deps: NodeDeps):
                     rate = await deps.currency_provider.get_rate(f.currency.upper(), target_currency.upper())
                     f.price = round(f.price * rate, 2)
                     f.currency = target_currency.upper()
-                except:
-                    pass
+                except Exception as e:
+                    from app.core.logging import get_logger
+                    get_logger(__name__).warning("budget_currency_conversion_failed", provider=f.provider, error=str(e))
 
         for h in hotels:
             if h.currency and h.currency.upper() != target_currency.upper():
@@ -50,8 +51,9 @@ def make_budget_optimizer_node(deps: NodeDeps):
                     rate = await deps.currency_provider.get_rate(h.currency.upper(), target_currency.upper())
                     h.price_per_night = round(h.price_per_night * rate, 2)
                     h.currency = target_currency.upper()
-                except:
-                    pass
+                except Exception as e:
+                    from app.core.logging import get_logger
+                    get_logger(__name__).warning("budget_currency_conversion_failed", provider=h.provider, error=str(e))
 
         budget.total_estimated = round(total, 2)
 

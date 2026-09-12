@@ -36,6 +36,7 @@ class Settings(BaseSettings):
 
     # --- Security ---
     SECRET_KEY: str = "dev-secret-change-me-in-production"
+    SESSION_SECRET_KEY: str = "dev-session-secret-change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 14

@@ -317,13 +317,20 @@ class TripService:
                 ))
 
         if state.get("itinerary"):
+            # Check if this agent_run_id already has an itinerary saved to prevent duplicate
+            # versions in case of Celery task redelivery.
+            run_id = uuid.UUID(state["agent_run_id"])
+            existing_itin = await db.execute(select(Itinerary).where(Itinerary.agent_run_id == run_id))
+            if existing_itin.scalar_one_or_none():
+                return
+                
             itin_data = state["itinerary"]
             critic = state.get("critic_result") or {}
             result = await db.execute(select(func.max(Itinerary.version)).where(Itinerary.trip_id == trip_id))
             next_version = (result.scalar() or 0) + 1
 
             itinerary_row = Itinerary(
-                trip_id=trip_id, version=next_version,
+                trip_id=trip_id, agent_run_id=run_id, version=next_version,
                 status=ItineraryStatus.APPROVED if critic.get("approved") else ItineraryStatus.NEEDS_REVISION,
                 total_estimated_cost=itin_data.get("total_estimated_cost"),
                 currency=itin_data.get("currency", "INR"),
