@@ -31,6 +31,7 @@ def build_chat_model(settings: Settings, provider: str | None = None, model: str
             model=model_name,
             temperature=settings.LLM_TEMPERATURE,
             api_key=settings.OPENAI_API_KEY,
+            base_url=settings.OPENAI_BASE_URL,
         )
 
     if provider == "anthropic":

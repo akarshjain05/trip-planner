@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     LLM_TEMPERATURE: float = 0.3
 
     OPENAI_API_KEY: str | None = None
+    OPENAI_BASE_URL: str | None = None
     ANTHROPIC_API_KEY: str | None = None
     GOOGLE_API_KEY: str | None = None
     OPENROUTER_API_KEY: str | None = None
