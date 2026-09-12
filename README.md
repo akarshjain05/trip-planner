@@ -70,7 +70,7 @@ different problems in the same run).
   a dedicated critic node, and partial replanning via the `Send` API
 - **Live SSE streaming** — watch every agent start, think, and complete
   in the browser in real time
-- **Google OAuth + JWT auth** — email/password and social login
+- **JWT auth** — secure email/password authentication
 - **Drag-and-drop itinerary reordering** — `@dnd-kit` with backend
   persistence
 - **Framer Motion animations** — page transitions, agent status
@@ -82,8 +82,7 @@ different problems in the same run).
   asyncio fallback for local dev
 - **OpenTelemetry tracing** — every LangGraph node is instrumented,
   exported to Jaeger
-- **Multi-LLM provider abstraction** — OpenAI / Anthropic / Google /
-  Groq / OpenRouter with rule-based fallback
+- **Multi-LLM provider abstraction** — NVIDIA / OpenRouter / Groq / Google with rule-based fallback
 - **Full demo mode** — the entire agentic pipeline runs without any API
   key (`DEMO_MODE=true`)
 

@@ -53,6 +53,6 @@ real deployment, put this at the reverse-proxy layer (e.g. nginx
 
 ## Known gaps (see `docs/future-improvements.md` for the full list)
 
-- No OAuth — email/password only.
+- **Authentication:** Email/password via JWT. (A Google OAuth backend route exists as a stub, but is not fully supported).
 - No account lockout after repeated failed logins.
 - No audit log of admin-level actions (there's no admin role yet).

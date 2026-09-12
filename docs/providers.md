@@ -2,31 +2,30 @@
 
 Every external dependency — the LLM and every travel-data source — sits
 behind a small `Protocol` interface (`app/tools/<category>/base.py`) with
-a mock implementation and, for most categories, a real-adapter
-implementation. `app/tools/factory.py` picks which one to construct from
+a mock implementation and a real-adapter implementation. `app/tools/factory.py` picks which one to construct from
 `.env`; nothing else in the codebase imports a provider class directly.
 
 ## What's tested vs. what's an interface
 
 | Category | Mock | Real adapter | Real adapter tested here? |
 |---|---|---|---|
-| LLM reasoning | ✅ rule-based, deterministic | ✅ OpenAI/Anthropic/Google/Groq/OpenRouter via LangChain | ❌ no network egress to these APIs from this build environment |
+| LLM reasoning | ✅ rule-based, deterministic | ✅ NVIDIA/OpenRouter/Groq/Google via LangChain and AsyncOpenAI | ❌ no network egress to these APIs from this build environment |
 | Flights | ✅ | ✅ Amadeus (test environment) | ❌ |
-| Hotels | ✅ | interface only (`booking_stub.py`) | — most hotel APIs need a signed partner agreement, not just a key |
+| Hotels | ✅ | ✅ SerpApi, RapidAPI Booking, Tavily | ❌ |
 | Places | ✅ curated + generated fallback | ✅ Google Places (New) | ❌ |
-| Restaurants | ✅ | interface only (`real_stub.py`) | — |
+| Restaurants | ✅ | ✅ Tavily | ❌ |
 | Weather | ✅ | ✅ Open-Meteo (**no key needed**) | ❌ (no egress), but this is the easiest one to actually turn on yourself |
 | Currency | ✅ fixed table | ✅ Frankfurter.app (no key needed) | ❌ |
 | Web search | ✅ labeled demo results | ✅ Tavily | ❌ |
 
-"Interface only" means: a real adapter class exists with the right method
-signature and raises a clear `ProviderError` explaining what's missing,
-rather than either lying about working or leaving a broken import. This
-was a deliberate choice over half-implementing something unverifiable —
-see the spec's own instruction: *"If something cannot be fully
-implemented because a third-party API requires credentials, implement a
-clean provider interface and working mock provider rather than leaving
-broken code."*
+## The LLM Failover Pool
+
+Unlike traditional single-provider setups, this backend implements a robust **Multi-Provider Failover Pool** (`app/ai/provider_pool.py`). 
+
+Because free or cheap LLM APIs (like NVIDIA NIMs, Groq, or OpenRouter free tiers) frequently experience cold starts, rate limits, or 504 Gateway Timeouts, the backend handles this gracefully:
+- **Daily Caps:** Tracks requests per provider in Redis and automatically fails over when a cap is hit (e.g., `LLM_DAILY_CAP_GROQ=14000`).
+- **Streaming Anti-Timeout:** Bypasses LangChain for heavy providers like NVIDIA, using raw `AsyncOpenAI(stream=True)` to stream reasoning tokens over the wire, keeping the HTTP connection alive during 3+ minute "thinking" phases and preventing 504 Gateway Timeouts.
+- **Cheap vs. Heavy Routing:** Uses lighter models (`LLM_MODEL_CHEAP_*`) for data extraction tasks and heavier models (`LLM_MODEL_*`) for itinerary generation and critic review.
 
 ## Why the mocks look the way they do
 
@@ -40,8 +39,7 @@ broken code."*
   result, and `rank_flights` switches to pure cost-sorting instead of the
   comfort-weighted default — otherwise a deterministic mock would make the
   replanning loop pointless (it would just repeat the same rejected
-  result forever). This was a real bug caught during testing; see
-  `docs/agent-architecture.md`.
+  result forever).
 
 ## Turning on a real provider
 
@@ -52,11 +50,3 @@ broken code."*
 
 Weather (Open-Meteo) and currency (Frankfurter.app) need no key at all,
 so they're the fastest to verify end-to-end yourself.
-
-## Extending with a new real provider
-
-Follow the shape in `app/tools/flights/amadeus.py` (the most complete
-example): implement the category's `Protocol`, normalize the provider's
-response into the shared Pydantic model (`FlightOptionModel`, etc.),
-raise `ProviderError` on failure with `retriable` set appropriately, and
-register it in `app/tools/factory.py`.

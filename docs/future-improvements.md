@@ -12,9 +12,6 @@ implemented and tested:
   `worker` service in `docker-compose.yml`. The `BACKGROUND_EXECUTOR`
   setting switches between asyncio (dev) and Celery (production) at
   runtime.
-- **OAuth / social login** — Google OAuth via Authlib
-  (`app/api/routes/oauth.py`), creating or linking users automatically on
-  first login.
 - **Drag-and-drop itinerary reordering** — `@dnd-kit/sortable` in
   `ItineraryDayCard.tsx` with a `PUT` endpoint that persists the new
   `order_index` per day.
@@ -39,6 +36,8 @@ implemented and tested:
   in `.github/workflows/test.yml`.
 
 ## Still genuinely out of scope
+
+- **Fully wired OAuth / social login** — The backend has a placeholder Google OAuth route (`app/api/routes/oauth.py`), but it is not fully configured, tested, or fully integrated into the frontend flow. Email/password is the supported method.
 
 - **Live verification of real provider adapters** (Amadeus, Google
   Places, Tavily, etc.) against actual APIs — the mock path is what's

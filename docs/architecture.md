@@ -56,25 +56,14 @@ flowchart LR
 
 ## Background execution
 
-The spec calls for Celery "or an equivalent background-job system." This
-build uses **asyncio background tasks + Redis pub/sub** instead of a
-literal Celery worker:
+The app natively uses **Celery + Redis** to dispatch and process long-running itinerary generation tasks asynchronously across distributed workers.
 
-- `asyncio.create_task()` runs the planning coroutine outside the request/
-  response cycle, in the same process.
-- Progress and completion are observable the same way they'd be with a
-  real worker — via Redis pub/sub (live) and Postgres (durable).
+- The API endpoints (e.g. `POST /trips`) dispatch a task via `celery_app.send_task()` and return immediately.
+- The dedicated `worker` container picks up the task and runs the LangGraph orchestrator.
+- Progress and completion are observable via Redis pub/sub (live via Server-Sent Events) and Postgres (durable).
+- To prevent duplicate work (idempotency), every agent execution is tracked with a unique `agent_run_id` which is verified before committing final itineraries to the database.
 
-This was a deliberate simplification, not an oversight: a real Celery
-deployment needs a broker, a result backend, and worker process
-management, which is real operational complexity for a single-container
-demo app. The trade-off is horizontal scalability — an asyncio task is
-pinned to the process that created it, where a real Celery worker pool
-would let you scale planning throughput independently of the API. If you
-outgrow one process, `app/services/trip_service.py`'s `TripService` is
-already the seam: wrap `plan_existing_trip` / `modify_trip` /
-`regenerate_trip` in Celery tasks, publish progress the same way, and swap
-the route handlers' `asyncio.create_task(...)` calls for `.delay(...)`.
+For local development without Docker, `BACKGROUND_EXECUTOR="asyncio"` can be set in `.env` to fall back to `asyncio.create_task()` within the FastAPI process, completely bypassing the need for a standalone Celery worker while keeping the exact same pub/sub event semantics.
 
 ## Where LangGraph's checkpointer is (and isn't) used
 
