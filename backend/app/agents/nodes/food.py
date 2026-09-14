@@ -13,13 +13,15 @@ def make_food_research_node(deps: NodeDeps):
                          "food_research", "Finding restaurants and food experiences...")
         req = TripRequirements(**state["requirements"])
         destination = state.get("destination") or req.destination or "Unspecified"
-        key = make_cache_key("restaurants", destination=destination)
+        import re
+        clean_dest = re.sub(r"\(.*?\)", "", destination).strip()
+        key = make_cache_key("restaurants", destination=clean_dest)
 
         async def fetch():
             options = await with_provider_fallback(
                 deps, state, "food_research",
-                deps.restaurant_provider.search_restaurants(destination, req.food_preferences),
-                MockRestaurantProvider().search_restaurants(destination, req.food_preferences),
+                deps.restaurant_provider.search_restaurants(clean_dest, req.food_preferences),
+                MockRestaurantProvider().search_restaurants(clean_dest, req.food_preferences),
             )
             return [o.model_dump(mode="json") for o in options]
 

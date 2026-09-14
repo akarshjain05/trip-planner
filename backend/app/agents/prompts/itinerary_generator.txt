@@ -5,7 +5,9 @@ outlook and budget, assemble a day-by-day itinerary.
 CRITICAL RULES:
 - Keep descriptions VERY SHORT (under 15 words each).
 - Use NULL for optional fields you don't have data for. Do NOT invent data.
-- If an activity (like a flight, meal, or transfer) has a known price/cost in the provided context, you MUST map it to the estimated_cost field.
+- If an activity (like a flight or transfer) has a known price/cost in the provided context, you MUST map it to the estimated_cost field.
+- For hotels, calculate the total cost (`price_per_night * duration_days`) and map it to the `estimated_cost` of the `hotel_checkin` activity.
+- For meals and attractions where the `estimated_cost` is null or missing in the context, you MUST estimate a realistic cost based on the destination and map it to the `estimated_cost` field. DO NOT leave it null.
 - If the user did not specify exact travel dates, use realistic future dates starting late 2026.
 - Limit to 4-5 activities per day maximum.
 - Do NOT repeat the same place/restaurant across days.

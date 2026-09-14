@@ -84,6 +84,7 @@ class LLMOrchestrator:
         cache_key = make_cache_key(
             "llm_call", schema=schema_cls.__name__, schema_hash=schema_hash,
             chain=",".join(self.settings.llm_provider_chain), 
+            model=self.settings.LLM_MODEL_CHEAP_OPENAI if cheap else self.settings.LLM_MODEL_OPENAI,
             cheap=cheap,
             system_prompt=system_prompt, user_prompt=user_prompt,
         )
@@ -286,8 +287,8 @@ class LLMOrchestrator:
         prompt = load_prompt("itinerary_generator")
         top_flights = [f.model_dump(exclude_none=True) for f in flights[:2]]
         top_hotels = [h.model_dump(exclude_none=True) for h in hotels[:2]]
-        top_places = [{"name": p.name, "category": p.category, "rating": p.rating} for p in places[:5]]
-        top_restaurants = [{"name": r.name, "cuisine": r.cuisine, "rating": r.rating} for r in restaurants[:5]]
+        top_places = [{"name": p.name, "category": p.category, "rating": p.rating, "estimated_cost": p.estimated_cost} for p in places[:5]]
+        top_restaurants = [{"name": r.name, "cuisine": r.cuisine, "rating": r.rating, "price_level": r.price_level, "estimated_cost": r.estimated_cost} for r in restaurants[:5]]
         ctx = (
             f"Requirements: {req.model_dump_json(exclude_none=True)}\nDestination: {destination}\n"
             f"Flights: {top_flights}\nHotels: {top_hotels}\n"

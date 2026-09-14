@@ -14,16 +14,10 @@ _FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 
 class OpenMeteoWeatherProvider:
     async def get_forecast(self, destination: str, start_date: dt.date | None, days: int) -> list[dict]:
-        # Validate horizon
         today = dt.date.today()
         target_date = start_date or today
         days_ahead = (target_date - today).days
         
-        # Open-Meteo free API only supports up to 16 days of forecast.
-        # If it's too far in the future, we raise ProviderError instead of masking it.
-        if days_ahead > 16:
-            raise ProviderError("open_meteo", f"Forecast horizon too far for '{destination}' (max 16 days, requested {days_ahead})", retriable=False)
-            
         async with httpx.AsyncClient(timeout=10) as client:
             geo = await client.get(_GEOCODE_URL, params={"name": destination.split(",")[0], "count": 1})
             if geo.status_code != 200 or not geo.json().get("results"):
@@ -32,28 +26,51 @@ class OpenMeteoWeatherProvider:
 
             params = {
                 "latitude": loc["latitude"], "longitude": loc["longitude"],
-                "daily": "weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-                "timezone": "auto", "forecast_days": min(max(days, 1), 16),
+                "daily": "weathercode,temperature_2m_max,temperature_2m_min",
+                "timezone": "auto",
             }
-            if start_date:
-                params["start_date"] = str(start_date)
-                params["end_date"] = str(start_date + dt.timedelta(days=min(days - 1, 15)))
-                # When start_date and end_date are provided, forecast_days is not used
-                if "forecast_days" in params:
-                    del params["forecast_days"]
+            
+            # If the date is more than 16 days in the future, we cannot use the forecast API.
+            # Instead, we pull historical data for the exact same dates from the previous year as a climate proxy!
+            api_url = _FORECAST_URL
+            
+            if days_ahead > 16:
+                api_url = "https://archive-api.open-meteo.com/v1/archive"
+                # Shift back in 1-year increments until the date is in the past (must be at least 5 days in the past for archive API)
+                historical_start = target_date
+                while (historical_start - today).days > -5:
+                    try:
+                        historical_start = historical_start.replace(year=historical_start.year - 1)
+                    except ValueError:
+                        # Handle leap day (Feb 29) by moving to Feb 28
+                        historical_start = historical_start.replace(year=historical_start.year - 1, day=28)
+                
+                params["start_date"] = str(historical_start)
+                params["end_date"] = str(historical_start + dt.timedelta(days=min(days - 1, 15)))
+            else:
+                params["daily"] += ",precipitation_probability_max"
+                if start_date:
+                    params["start_date"] = str(start_date)
+                    params["end_date"] = str(start_date + dt.timedelta(days=min(days - 1, 15)))
+                else:
+                    params["forecast_days"] = min(max(days, 1), 16)
 
-            resp = await client.get(_FORECAST_URL, params=params)
+            resp = await client.get(api_url, params=params)
             if resp.status_code != 200:
-                raise ProviderError("open_meteo", f"forecast failed: {resp.text}", retriable=True)
+                raise ProviderError("open_meteo", f"weather API failed: {resp.text}", retriable=True)
             daily = resp.json()["daily"]
 
         out = []
         for i, date_str in enumerate(daily["time"]):
+            rain_chance = None
+            if "precipitation_probability_max" in daily and i < len(daily["precipitation_probability_max"]):
+                rain_chance = daily["precipitation_probability_max"][i]
+                
             out.append({
                 "date": date_str, "day_number": i + 1,
                 "condition": _decode_weathercode(daily["weathercode"][i]),
                 "temp_high_c": daily["temperature_2m_max"][i], "temp_low_c": daily["temperature_2m_min"][i],
-                "rain_chance_pct": daily.get("precipitation_probability_max", [None])[i],
+                "rain_chance_pct": rain_chance,
                 "is_mock": False,
             })
         return out

@@ -167,20 +167,17 @@ class TripService:
             "estimated_cost_usd": 0.0,
             "awaiting_input": False,
             "missing_info": {},
-            "requirements": {},
         }
         # Also remove completed_nodes so we start totally fresh
         base_state.pop("completed_nodes", None)
         await self._run_graph(
             db, trip, run, trigger="modification",
-            user_message="(full regenerate requested)", base_state=base_state,
+            user_message=trip.original_prompt, base_state=base_state,
         )
         return trip
 
     # ------------------------------------------------------------------
     async def _run_graph(
-        print(f"RUNNING GRAPH with initial_state={initial_state}")
-
         self, db: AsyncSession, trip: Trip, run: AgentRun, *, trigger: str, user_message: str, base_state: dict,
     ) -> None:
         deps = self._build_deps()

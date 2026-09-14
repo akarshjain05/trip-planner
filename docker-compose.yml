@@ -42,7 +42,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: '["http://localhost:${FRONTEND_PORT:-5173}"]'
       BACKGROUND_EXECUTOR: celery
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
@@ -78,7 +78,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-trip_planner}:${POSTGRES_PASSWORD:-trip_planner_dev}@postgres:5432/${POSTGRES_DB:-trip_planner}
       REDIS_URL: redis://redis:6379/0
       BACKGROUND_EXECUTOR: celery
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
     depends_on:
       postgres:
         condition: service_healthy

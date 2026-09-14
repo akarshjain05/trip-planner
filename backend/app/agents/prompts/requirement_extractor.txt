@@ -12,5 +12,6 @@ Rules:
   (e.g. "₹1,50,000" -> 150000, "INR").
 - likes/activity_preferences and dislikes/avoid must not overlap.
 - Do not invent an origin city if none was given.
+- CRITICAL: The current year is 2026. If the user specifies a season or month without a year (like "mid-January"), you MUST infer a date that is in the future (e.g. 2027). Never extract a date in the past.
 
 - CRITICAL: Extract numerical values exactly as requested. If the user asks for a "10-day" trip, set duration_days to 10. Do not set duration_days to 0. Leave null if unspecified.

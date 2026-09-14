@@ -14,17 +14,19 @@ def make_hotel_research_node(deps: NodeDeps):
                          "hotel_research", "Comparing hotels...")
         req = TripRequirements(**state["requirements"])
         destination = state.get("destination") or req.destination or "Unspecified"
+        import re
+        clean_dest = re.sub(r"\(.*?\)", "", destination).strip()
         start = dt.date.fromisoformat(req.start_date) if isinstance(req.start_date, str) else req.start_date
         end = dt.date.fromisoformat(req.end_date) if isinstance(req.end_date, str) else req.end_date
 
-        key = make_cache_key("hotels", destination=destination, checkin=str(start), prefs=",".join(req.hotel_preferences))
+        key = make_cache_key("hotels", destination=clean_dest, checkin=str(start), prefs=",".join(req.hotel_preferences))
 
         async def fetch():
             query = ", ".join(req.hotel_preferences) if req.hotel_preferences else None
             options = await with_provider_fallback(
                 deps, state, "hotel_research",
-                deps.hotel_provider.search_hotels(destination, start, end, max(req.adults, 1), 1, query),
-                MockHotelProvider().search_hotels(destination, start, end, max(req.adults, 1), 1, query),
+                deps.hotel_provider.search_hotels(clean_dest, start, end, max(req.adults, 1), 1, query),
+                MockHotelProvider().search_hotels(clean_dest, start, end, max(req.adults, 1), 1, query),
             )
             return [o.model_dump(mode="json") for o in options]
 

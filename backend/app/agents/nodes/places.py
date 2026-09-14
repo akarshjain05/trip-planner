@@ -13,13 +13,15 @@ def make_places_research_node(deps: NodeDeps):
                          "places_research", "Finding attractions and experiences...")
         req = TripRequirements(**state["requirements"])
         destination = state.get("destination") or req.destination or "Unspecified"
-        key = make_cache_key("places", destination=destination)
+        import re
+        clean_dest = re.sub(r"\(.*?\)", "", destination).strip()
+        key = make_cache_key("places", destination=clean_dest)
 
         async def fetch():
             options = await with_provider_fallback(
                 deps, state, "places_research",
-                deps.places_provider.search_places(destination, req.activity_preferences),
-                MockPlacesProvider().search_places(destination, req.activity_preferences),
+                deps.places_provider.search_places(clean_dest, req.activity_preferences),
+                MockPlacesProvider().search_places(clean_dest, req.activity_preferences),
             )
             return [o.model_dump(mode="json") for o in options]
 

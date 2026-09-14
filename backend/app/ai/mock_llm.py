@@ -167,12 +167,23 @@ def plan_transportation(req: TripRequirements, hotel: HotelOptionModel | None) -
 
 def weather_outlook(req: TripRequirements) -> WeatherOutlook:
     days = req.duration_days or 1
-    start = req.start_date
+    start_str = req.start_date
+    start_dt = None
+    if start_str:
+        try:
+            # Handle YYYY-MM-DD or just YYYY-MM
+            if len(start_str) == 7:
+                start_dt = dt.datetime.strptime(start_str, "%Y-%m").date()
+            else:
+                start_dt = dt.datetime.strptime(start_str, "%Y-%m-%d").date()
+        except ValueError:
+            start_dt = None
+
     conditions = ["Sunny", "Partly cloudy", "Sunny", "Light rain", "Partly cloudy", "Sunny", "Overcast", "Sunny"]
     out = []
     for i in range(days):
         out.append(DailyWeather(
-            date=(start + dt.timedelta(days=i)) if start else None,
+            date=(start_dt + dt.timedelta(days=i)) if start_dt else None,
             day_number=i + 1,
             condition=conditions[i % len(conditions)],
             temp_high_c=24.0 + (i % 3),

@@ -87,6 +87,9 @@ export function TripDetailPage() {
         {isPlanning && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-10 overflow-hidden">
             <AgentProgressBoard events={events} />
+            <div className="mt-4 flex justify-end">
+              <RegenerateButton tripId={tripId} />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -244,8 +247,12 @@ function RegenerateButton({ tripId }: { tripId: string }) {
     <button
       onClick={async () => {
         setLoading(true);
-        await regenerateTrip(tripId);
-        queryClient.invalidateQueries({ queryKey: ["trip-status", tripId] });
+        try {
+          await regenerateTrip(tripId);
+          queryClient.invalidateQueries({ queryKey: ["trip-status", tripId] });
+        } finally {
+          setLoading(false);
+        }
       }}
       disabled={loading}
       className="text-xs text-text-faint hover:text-text-muted transition-colors font-mono uppercase tracking-wide disabled:opacity-60"

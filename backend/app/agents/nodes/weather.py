@@ -14,16 +14,18 @@ def make_weather_season_node(deps: NodeDeps):
                          "weather_season", "Checking weather and seasonality...")
         req = TripRequirements(**state["requirements"])
         destination = state.get("destination") or req.destination or "Unspecified"
+        import re
+        clean_dest = re.sub(r"\(.*?\)", "", destination).strip()
         start = dt.date.fromisoformat(req.start_date) if isinstance(req.start_date, str) else req.start_date
         days = req.duration_days or 1
 
-        key = make_cache_key("weather", destination=destination, start=str(start), days=days)
+        key = make_cache_key("weather", destination=clean_dest, start=str(start), days=days)
 
         async def fetch():
             return await with_provider_fallback(
                 deps, state, "weather_season",
-                deps.weather_provider.get_forecast(destination, start, days),
-                MockWeatherProvider().get_forecast(destination, start, days),
+                deps.weather_provider.get_forecast(clean_dest, start, days),
+                MockWeatherProvider().get_forecast(clean_dest, start, days),
             )
 
         raw, hit = await cached(key, deps.settings.CACHE_TTL_WEATHER, fetch)

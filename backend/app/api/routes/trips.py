@@ -136,8 +136,9 @@ async def regenerate_trip(
     trip_id: uuid.UUID, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db),
 ) -> TripStatusRead:
     trip = await _get_owned_trip(trip_id, db, current_user)
-    if trip.status == TripStatus.PLANNING:
-        raise HTTPException(status.HTTP_409_CONFLICT, "This trip is already being planned.")
+    
+    # If the trip is currently PLANNING, this will forcefully abandon the old run
+    # and start a new one, which is useful for aborting stuck runs.
     trip.status = TripStatus.PLANNING
     await db.commit()
 
@@ -224,11 +225,21 @@ async def get_budget(trip_id: uuid.UUID, current_user: User = Depends(get_curren
 @router.get("/{trip_id}/sources", response_model=list[ResearchSourceRead])
 async def get_sources(trip_id: uuid.UUID, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> list[ResearchSource]:
     trip = await _get_owned_trip(trip_id, db, current_user)
+    
+    # Get the latest agent run
+    latest_run_res = await db.execute(
+        select(AgentRun).where(AgentRun.trip_id == trip.id).order_by(AgentRun.created_at.desc()).limit(1)
+    )
+    latest_run = latest_run_res.scalar_one_or_none()
+    
+    if not latest_run:
+        return []
+
     result = await db.execute(
-        select(ResearchSource).join(AgentRun, ResearchSource.agent_run_id == AgentRun.id).where(AgentRun.trip_id == trip.id)
+        select(ResearchSource).where(ResearchSource.agent_run_id == latest_run.id)
     )
     
-    # Deduplicate sources by URL since they might be duplicated across multiple agent runs (e.g., from regenerating the trip)
+    # Deduplicate sources by URL just in case
     sources = result.scalars().all()
     unique_sources = {}
     for s in sources:

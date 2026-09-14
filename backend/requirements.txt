@@ -59,3 +59,4 @@ opentelemetry-exporter-otlp==1.27.0
 
 setuptools==74.1.2
 langchain-community==0.3.13
+airportsdata==20260905

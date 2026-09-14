@@ -24,7 +24,8 @@ def _configure_cache(settings):
 async def _run(trip_id: str, coro_name: str, celery_task_id: str | None, *args):
     settings = get_settings()
     _configure_cache(settings)
-    engine = create_async_engine(settings.DATABASE_URL, future=True)  # fresh per task, always
+    from sqlalchemy.pool import NullPool
+    engine = create_async_engine(settings.DATABASE_URL, future=True, poolclass=NullPool)  # fresh per task, always
     session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     try:
         async with session_factory() as db:

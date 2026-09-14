@@ -214,10 +214,17 @@ class ProviderPool:
                 return parsed, result["raw"], provider, model_name
 
             except Exception as e:
-                attempts.append(ProviderAttempt(provider, model_name, error=str(e)[:200]))
-                if _is_rate_limited(e):
+                error_str = str(e)
+                attempts.append(ProviderAttempt(provider, model_name, error=error_str[:200]))
+                
+                # If the local model just hallucinated bad JSON or LangChain failed to parse it,
+                # do NOT lock out the entire provider for 5 minutes. Just let this node fail.
+                if "validation error" in error_str.lower() or "parsing" in error_str.lower():
+                    # No cooldown for parsing failures
+                    pass
+                elif _is_rate_limited(e):
                     await self._set_cooldown(provider, 24 * 3600)   # confirmed exhausted -- skip all day
-                elif _is_transient(e) or "400" in str(e):
+                elif _is_transient(e) or "400" in error_str:
                     await self._set_cooldown(provider, 60)          # probably a blip or missing model
                 else:
                     await self._set_cooldown(provider, 300)         # real error -- don't hammer it
