@@ -34,10 +34,9 @@ implemented and tested:
 - **Playwright E2E tests** — `tests/auth.spec.ts` and
   `tests/planning.spec.ts` covering the full user journey, with a CI job
   in `.github/workflows/test.yml`.
+- **Fully wired OAuth / social login** — `app/api/routes/oauth.py` integrates with Google OAuth via Authlib, handles user creation, and seamlessly redirects to the frontend `OAuthCallbackPage` for token injection.
 
 ## Still genuinely out of scope
-
-- **Fully wired OAuth / social login** — The backend has a placeholder Google OAuth route (`app/api/routes/oauth.py`), but it is not fully configured, tested, or fully integrated into the frontend flow. Email/password is the supported method.
 
 - **Live verification of real provider adapters** (Amadeus, Google
   Places, Tavily, etc.) against actual APIs — the mock path is what's

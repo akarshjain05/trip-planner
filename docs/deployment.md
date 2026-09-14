@@ -6,38 +6,25 @@
 docker compose up --build -d
 ```
 
-Four services: `postgres`, `redis`, `backend` (runs `alembic upgrade head`
-on startup, then `uvicorn`), `frontend` (built and served by nginx). All
-have healthchecks; `backend` waits for `postgres`/`redis` to report
-healthy before starting.
+This spins up seven services:
+- `postgres`: Relational database for trips, users, and state.
+- `redis`: Message broker for Celery and caching.
+- `backend`: FastAPI server (runs `alembic upgrade head` on startup).
+- `worker`: Celery worker that executes the LangGraph agent pipelines.
+- `frontend`: React app built and served statically by NGINX.
+- `flower`: Celery monitoring dashboard (`http://localhost:5555`).
+- `jaeger`: OpenTelemetry distributed tracing dashboard (`http://localhost:16686`).
 
-This compose file is written and YAML-validated but has not been run
-end-to-end in the environment this project was built in (no
-Docker-in-Docker, no Docker Hub egress available there) — the pieces it
-wraps (backend boot, migrations, tests, frontend build) are each verified
-independently; see the root README's "what's real" section.
+All services have healthchecks; `backend` and `worker` wait for `postgres` and `redis` to report healthy before starting.
 
 ## Production notes
 
 - Set real values for `SECRET_KEY`, database credentials, and `CORS_ORIGINS`.
-- Put a reverse proxy (nginx, Caddy, or a managed load balancer) in front
-  with TLS termination; this build doesn't terminate TLS itself.
-- The `backend` Dockerfile's `HEALTHCHECK` hits `/health` — wire your
-  orchestrator's readiness/liveness probes to the same endpoint.
-- `frontend`'s nginx config falls back to `index.html` for any unknown
-  path (`try_files ... /index.html`), required for React Router's
-  client-side routes to work on a hard refresh/direct link.
-- Migrations run automatically on backend container start
-  (`alembic upgrade head && uvicorn ...`). For a multi-replica deployment,
-  run migrations as a separate one-off job instead of letting every
-  replica race to apply them.
-- Swap the asyncio-background-task planning execution for real Celery
-  workers if you need to scale planning throughput independently of the
-  API process — see `docs/architecture.md#background-execution` for the
-  seam.
+- Put a reverse proxy (NGINX, Caddy, or a managed load balancer) in front with TLS termination.
+- The `backend` Dockerfile's `HEALTHCHECK` hits `/health` — wire your orchestrator's probes to the same endpoint.
+- The `frontend` NGINX config is already configured for React Router (`try_files $uri $uri/ /index.html`).
+- Migrations run automatically on the `backend` container start. For a multi-replica deployment (like Kubernetes), run migrations as a separate `Job` instead of letting every replica race to apply them.
 
 ## Environment-specific config
 
-Everything that varies by environment is a `.env` variable — see
-`docs/environment-variables.md`. Nothing environment-specific is
-hardcoded in application code.
+Everything that varies by environment is a `.env` variable — see `docs/environment-variables.md`. Nothing environment-specific is hardcoded in application code.

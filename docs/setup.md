@@ -81,9 +81,9 @@ For the non-Docker path, change `DATABASE_URL`/`REDIS_URL` in
 ## Enabling a real LLM
 
 1. Set `DEMO_MODE=false` in `backend/.env`.
-2. Set `LLM_PROVIDER` to `openai`, `anthropic`, `google`, or `openrouter`.
+2. Set `LLM_PROVIDER` (and the `LLM_PROVIDER_CHAIN` failover pool) to `openai`, `google`, `groq`, `openrouter`, or `nvidia`.
 3. Set the matching `*_API_KEY`.
-4. Optionally set `LLM_MODEL` to a specific model name for that provider.
+4. Optionally set `LLM_MODEL_*` to a specific model name for that provider.
 
 Everything else (travel-data providers) stays on mock data unless you
 also flip those individually — see `docs/providers.md`.

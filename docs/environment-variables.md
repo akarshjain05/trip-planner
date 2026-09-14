@@ -21,7 +21,7 @@ copy-pasteable version with the same comments) and `frontend/.env`.
 | `DATABASE_URL` | local Postgres | Must be an `asyncpg` URL (`postgresql+asyncpg://...`) |
 | `REDIS_URL` | local Redis | |
 | `DEMO_MODE` | `true` | Forces every provider (including the LLM) onto deterministic mock logic |
-| `BACKGROUND_EXECUTOR` | `asyncio` | `asyncio` \| `celery` |
+| `BACKGROUND_EXECUTOR` | `celery` | `celery` \| `asyncio` |
 
 ### LLM Providers (Failover Pool)
 

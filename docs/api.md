@@ -15,6 +15,8 @@ All routes except `/auth/register` and `/auth/login` require
 | POST | `/api/auth/login` | Returns a token pair |
 | POST | `/api/auth/refresh` | Exchange a refresh token for a new pair |
 | GET | `/api/auth/me` | Current user |
+| GET | `/api/oauth/google/login` | Redirects to Google for OAuth login |
+| GET | `/api/oauth/google/auth` | Google OAuth callback handler, issues tokens |
 
 ## Users
 
@@ -40,12 +42,19 @@ All routes except `/auth/register` and `/auth/login` require
 | GET | `/api/trips/{id}/budget` | Latest budget breakdown |
 | GET | `/api/trips/{id}/sources` | Web-research sources with provenance |
 | GET | `/api/trips/{id}/stream` | SSE live progress (see below) |
+| PUT | `/api/trips/{id}/itinerary/days/{day_id}/activities/reorder` | Update the `order_index` of activities within a day (drag-and-drop) |
 
 ## Agent runs
 
 | Method | Path | |
 |---|---|---|
 | GET | `/api/agent-runs/{id}` | Full event history for one planning run |
+
+## Admin
+
+| Method | Path | |
+|---|---|---|
+| GET | `/api/admin/stats` | Aggregated token usage, cost, and iteration counts across all users. Requires `is_admin=true`. |
 
 ## SSE stream
 

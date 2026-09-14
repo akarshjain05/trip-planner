@@ -9,8 +9,8 @@ a mock implementation and a real-adapter implementation. `app/tools/factory.py` 
 
 | Category | Mock | Real adapter | Real adapter tested here? |
 |---|---|---|---|
-| LLM reasoning | ✅ rule-based, deterministic | ✅ NVIDIA/OpenRouter/Groq/Google via LangChain and AsyncOpenAI | ❌ no network egress to these APIs from this build environment |
-| Flights | ✅ | ✅ Amadeus (test environment) | ❌ |
+| LLM reasoning | ✅ rule-based, deterministic | ✅ NVIDIA/OpenRouter/Groq/Google/OpenAI via LangChain and AsyncOpenAI | ❌ no network egress to these APIs from this build environment |
+| Flights | ✅ | ✅ Amadeus, SerpApi, SkyScrapper, Tavily | ❌ |
 | Hotels | ✅ | ✅ SerpApi, RapidAPI Booking, Tavily | ❌ |
 | Places | ✅ curated + generated fallback | ✅ Google Places (New) | ❌ |
 | Restaurants | ✅ | ✅ Tavily | ❌ |
