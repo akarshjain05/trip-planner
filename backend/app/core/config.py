@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # --- App ---
     BACKGROUND_EXECUTOR: str = "fastapi"
 
-    APP_NAME: str = "AI Trip Planner"
+    APP_NAME: str = "Itinero"
     ENVIRONMENT: Literal["development", "test", "production"] = "development"
     DEBUG: bool = True
     API_PREFIX: str = "/api"

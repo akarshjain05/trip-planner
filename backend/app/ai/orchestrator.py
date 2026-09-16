@@ -288,7 +288,7 @@ class LLMOrchestrator:
         top_flights = [f.model_dump(exclude_none=True) for f in flights[:2]]
         top_hotels = [h.model_dump(exclude_none=True) for h in hotels[:2]]
         top_places = [{"name": p.name, "category": p.category, "rating": p.rating, "estimated_cost": p.estimated_cost} for p in places[:5]]
-        top_restaurants = [{"name": r.name, "cuisine": r.cuisine, "rating": r.rating, "price_level": r.price_level, "estimated_cost": r.estimated_cost} for r in restaurants[:5]]
+        top_restaurants = [{"name": r.name, "cuisine": r.cuisine, "rating": r.rating, "price_level": r.price_level} for r in restaurants[:5]]
         ctx = (
             f"Requirements: {req.model_dump_json(exclude_none=True)}\nDestination: {destination}\n"
             f"Flights: {top_flights}\nHotels: {top_hotels}\n"

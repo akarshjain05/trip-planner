@@ -1,4 +1,4 @@
-# Contributing to Wayfarer
+# Contributing to Itinero
 
 Thanks for your interest in contributing! This project is a portfolio
 piece, but pull requests that improve code quality, fix bugs, or add

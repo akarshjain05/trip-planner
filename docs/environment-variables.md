@@ -7,7 +7,7 @@ copy-pasteable version with the same comments) and `frontend/.env`.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `APP_NAME` | `AI Trip Planner` | |
+| `APP_NAME` | `Itinero` | |
 | `ENVIRONMENT` | `development` | `development` \| `test` \| `production` |
 | `DEBUG` | `true` | Verbose console logging |
 | `API_PREFIX` | `/api` | |

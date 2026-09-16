@@ -44,8 +44,8 @@ export function TripDetailPage() {
 
   const showResults = status?.status === "completed";
 
-  const { data: itinerary } = useQuery({
-    queryKey: ["itinerary", tripId], queryFn: () => getItinerary(tripId), enabled: showResults,
+  const { data: itinerary, isError: isItineraryError } = useQuery({
+    queryKey: ["itinerary", tripId], queryFn: () => getItinerary(tripId), enabled: showResults, retry: false,
   });
   const { data: budget } = useQuery({
     queryKey: ["budget", tripId], queryFn: () => getBudget(tripId), enabled: showResults,
@@ -54,8 +54,15 @@ export function TripDetailPage() {
     queryKey: ["sources", tripId], queryFn: () => getSources(tripId), enabled: showResults,
   });
 
-  if (!trip || !status) {
-    return <div className="max-w-3xl mx-auto px-6 py-16 text-text-muted text-sm">Loading trip...</div>;
+  const isFailed = status?.status === "failed" || (status?.status === "completed" && isItineraryError);
+  const isLoading = !trip || !status;
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
+      </div>
+    );
   }
 
   return (
@@ -94,7 +101,7 @@ export function TripDetailPage() {
         )}
       </AnimatePresence>
 
-      {status.status === "failed" && (
+      {isFailed && (
         <div className="border border-stamp/40 bg-stamp/10 rounded-xl px-6 py-5 text-sm text-text">
           Something went wrong while planning this trip. You can try regenerating it.
           <div className="mt-4">

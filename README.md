@@ -1,4 +1,4 @@
-# Wayfarer — Agentic AI Trip Planner
+# Itinero — Agentic Itinero
 
 [![Tests](https://github.com/akarshjain05/trip-planner/actions/workflows/test.yml/badge.svg)](https://github.com/akarshjain05/trip-planner/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

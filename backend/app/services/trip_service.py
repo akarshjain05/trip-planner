@@ -239,8 +239,16 @@ class TripService:
 
         await self._sync_state_to_db(db, trip, final_state)
 
-        run.status = AgentRunStatus.AWAITING_INPUT if final_state.get("awaiting_input") else AgentRunStatus.COMPLETED
-        trip.status = TripStatus.AWAITING_INPUT if final_state.get("awaiting_input") else TripStatus.COMPLETED
+        if final_state.get("error"):
+            run.status = AgentRunStatus.FAILED
+            trip.status = TripStatus.FAILED
+            run.error_message = str(final_state["error"])[:2000]
+        elif final_state.get("awaiting_input"):
+            run.status = AgentRunStatus.AWAITING_INPUT
+            trip.status = TripStatus.AWAITING_INPUT
+        else:
+            run.status = AgentRunStatus.COMPLETED
+            trip.status = TripStatus.COMPLETED
         run.iteration_count = final_state.get("iteration_count", 0)
         run.tool_call_count = final_state.get("tool_call_count", 0)
         run.input_tokens = final_state.get("input_tokens", 0)

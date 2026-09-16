@@ -34,7 +34,7 @@ from app.core.limiter import limiter
 app = FastAPI(
     title=settings.APP_NAME,
     description=(
-        "Agentic AI Trip Planner -- a LangGraph-orchestrated multi-agent "
+        "Agentic Itinero -- a LangGraph-orchestrated multi-agent "
         "travel planning system. See /docs for the interactive OpenAPI UI."
     ),
     version="1.0.0",

@@ -11,12 +11,13 @@ export function NavBar() {
     <header className="border-b border-border bg-bg/90 backdrop-blur sticky top-0 z-40">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 group">
-          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-            <circle cx="16" cy="16" r="14" stroke="#C9A24B" strokeWidth="2" />
-            <path d="M16 7L19 16L16 25L13 16L16 7Z" fill="#C9A24B" />
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C9A24B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="6" cy="19" r="3"></circle>
+            <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path>
+            <circle cx="18" cy="5" r="3"></circle>
           </svg>
           <span className="font-display text-lg tracking-wide text-text group-hover:text-accent transition-colors">
-            Wayfarer
+            Itinero
           </span>
         </Link>
 

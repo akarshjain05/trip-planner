@@ -13,6 +13,7 @@ export function useAgentStream(tripId: string | null, runId: string | null | und
     if (!tripId || !active) return;
 
     let isMounted = true;
+    setEvents([]); // Instantly clear old events when a new run starts or active toggles
 
     const connectStream = () => {
       const es = new EventSource(streamUrl(tripId));
